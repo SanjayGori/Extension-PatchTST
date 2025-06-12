@@ -28,6 +28,10 @@ for fp in glob.glob(os.path.join(derived_dir, "*_derived.csv")):
         max_window - df["Volatility_Norm"].fillna(0) * (max_window - min_window)
     ).astype(int)
    
+   # 2.4: Adaptive Patch
+   # Round to nearest multiple of 8
+    df['AdaptivePatch'] = (df['AdaptiveWindow'] / 8).round().astype(int) * 8
+
     # save derived CSV
     base = os.path.basename(fp).replace("_derived.csv", "")
     out = os.path.join(windowing_dir, f"{base}_windowing.csv")
