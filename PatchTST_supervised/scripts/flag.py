@@ -3,8 +3,8 @@ import glob
 import pandas as pd
 
 # 1. Define folders (relative to script’s location)
-raw_dir    = "../data/raw"
-flagged_dir = "../data/flagged"
+raw_dir    = "PatchTST_supervised/data/raw"
+flagged_dir = "PatchTST_supervised/data/flagged"
 os.makedirs(flagged_dir, exist_ok=True)
 
 # 2. Loop over every CSV in raw
