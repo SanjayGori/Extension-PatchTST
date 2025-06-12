@@ -36,7 +36,7 @@ This is a step-by-step blueprint you can follow exactly as written. Each phase e
 | **2.1 Market Regime Finder** – calculate 5-day rolling volatility of log-returns.                              |                          |
 | **2.2 Volatility Normalization** – Normalized volatility → volatility_norm (0 to 1). Store                     |                          |
 | **2.3 Window Logic** – map volatility → window size (low vol = 50, high vol = 10). Store `window_len` per row. |                          |
-| **2.4 Windowing round off to neraest x8** – window data (ex: 37 round to nearest multiple of 8. so, 40).       |                          |
+| **2.4 Adaptive Patch** – window data (ex: 37 round to nearest multiple of 8. so, 40).         |                          |
 | **2.5 Unit Test** – for a hand-made series, assert that high volatility shrinks the window.                    |                          |
 | **2.6 Notebook Demo** – plot volatility vs. chosen window length for one ticker; label axes and units.         |                          |
 
