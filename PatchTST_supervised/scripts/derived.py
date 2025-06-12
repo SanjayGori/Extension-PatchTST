@@ -12,7 +12,7 @@ for fp in glob.glob(os.path.join(flagged_dir, "*_flagged.csv")):
     df = pd.read_csv(fp, parse_dates=["Date"])
 
     # log return
-    df["log_return"] = np.log(df["Close"] / df["Close"].shift(1))
+    df["log_return"] = np.log(df["Adj Close"] / df["Adj Close"].shift(1))
 
     # RSI (14)
     delta = df["Close"].diff()
