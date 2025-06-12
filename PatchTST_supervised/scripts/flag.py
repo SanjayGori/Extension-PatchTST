@@ -1,16 +1,24 @@
+import os
+import glob
 import pandas as pd
 
-# 1. Load your raw CSV
-df = pd.read_csv(
-    "C:/Users/gorit/Downloads/archive/Set 1/ACN.csv",
-    parse_dates=["Date"]
-)
+# 1. Define folders (relative to script’s location)
+raw_dir    = "../data/raw"
+flagged_dir = "../data/flagged"
+os.makedirs(flagged_dir, exist_ok=True)
 
-# 4. Flag gaps >1 day per ticker
-df = df.sort_values(["Ticker", "Date"])
-df["is_gap"] = df.groupby("Ticker")["Date"].diff().dt.days > 1
+# 2. Loop over every CSV in raw
+for raw_path in glob.glob(os.path.join(raw_dir, "*.csv")):
+    # load
+    df = pd.read_csv(raw_path, parse_dates=["Date"])
+    # sort & flag gaps
+    df = df.sort_values(["Ticker", "Date"])
+    df["is_gap"] = df.groupby("Ticker")["Date"].diff().dt.days > 1
 
-# 5. Save the flagged CSV
-out_path = "C:/Users/gorit/Capstone project"
-df.to_csv("ACN_flag",index=False)
-#print("Wrote", out_path)
+    # prepare output path
+    base = os.path.basename(raw_path).rsplit(".csv", 1)[0]
+    out_path = os.path.join(flagged_dir, f"{base}_flagged.csv")
+
+    # save
+    df.to_csv(out_path, index=False)
+    print(f"Wrote → {out_path}")
