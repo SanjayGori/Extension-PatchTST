@@ -11,8 +11,12 @@ os.makedirs(flagged_dir, exist_ok=True)
 for raw_path in glob.glob(os.path.join(raw_dir, "*.csv")):
     # load
     df = pd.read_csv(raw_path, parse_dates=["Date"])
+
+    # Ensure Date column is datetime
+    df['Date'] = pd.to_datetime(df['Date'])
+
     # sort & flag gaps
-    df = df.sort_values(["Ticker", "Date"])
+    df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
     df["is_gap"] = df.groupby("Ticker")["Date"].diff().dt.days > 1
 
     # prepare output path
