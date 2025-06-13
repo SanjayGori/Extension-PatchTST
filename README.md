@@ -38,7 +38,7 @@ This project enhances the PatchTST model for financial time series forecasting u
 | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | **1.1 Raw Grab** – download Kaggle S&P 500 OHLCV file to `/data/raw/`.                                                           | Source historical data      |
 | **1.2 Cleaning Script** – fill blanks, convert `Date` to `datetime`, keep only required columns.                                 | Ensure clean, usable data   |
-| **1.3 Holiday & Gap Flags** – add `is_holiday` (NYSE calendar) and `is_gap` (when `Date_i – Date_{i-1} > 1 day`).                | Tag weekends/holidays       |
+| **1.3 Holiday & Gap Flags** – add `is_gap` (when `Date_i – Date_{i-1} > 1 day`).                | Tag weekends/holidays       |
 | **1.4 Derived Indicators** – compute RSI, SMA, EMA, MACD, ATR, daily log-return. Include formulas as comments.                   | Create technical signals    |
 | **1.5 10-Row Snapshot** – export a CSV with 10 representative rows.                                                              | Quick visual reference      |
 
