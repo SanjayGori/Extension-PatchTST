@@ -1,140 +1,157 @@
-**Project Road Map – “Adaptive Time-Aware PatchTST” (Team 7)**
-This is a step-by-step blueprint you can follow exactly as written. Each phase ends with a clear “Done ✓” milestone so everyone knows when to move on.
+# 📈 Adaptive Time-Aware PatchTST – Project Roadmap (Team 7)
+
+This project enhances the PatchTST model for financial time series forecasting using adaptive patching, time-aware embeddings, and multivariate indicators. Below is the step-by-step blueprint our team will follow.
 
 ---
 
-### 0. Kick-off (1 day)
+## 📚 Table of Contents
 
-| Why?                                                                                                                                            | To align everyone and lock scope |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| **0.1 Quick Sync** – 30-min call: confirm objective, extensions (Dynamic Patching, Time-Aware Embedding, Adaptive Windowing), deadlines, roles. |                                  |
-| **0.2 Repo & Boards** – create / tidy GitHub repo, one ClickUp/Jira board with the same phase names as below.                                   |                                  |
-| **0.3 Baseline Check** – run the *exact* PatchTST weather benchmark command (already done) and store logs + metrics in `/baseline/`.            |                                  |
-
-**Done ✓** when repo + board exist and baseline metrics are committed.
-
----
-
-### 1. Data Pipeline (3 days)
-
-| Task                                                                                                                             | Plain-English Goal |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| **1.1 Raw Grab** – download Kaggle S\&P 500 OHLCV file to `/data/raw/`.                                                          |                    |
-| **1.2 Cleaning Script** – fill obvious blanks, convert `Date` to `datetime`, keep only required columns.                         |                    |
-| **1.3 Holiday & Gap Flags** – add `is_holiday` (NYSE calendar) and `is_gap` (when `Date_i – Date_{i-1} > 1 day`).                |                    |
-| **1.4 Derived Indicators** – compute RSI, SMA, EMA, MACD, ATR, daily log-return. Save math formulas as comments in the notebook. |                    |
-| **1.5 10-Row Snapshot** – export a CSV with 10 representative rows; this will be pasted into every future report.                |                    |
-
-**Done ✓** when `data/processed/train.csv` exists and the 10-row sample is committed.
+1. [0. Kick-off](#0-kick-off-1-day)
+2. [1. Data Pipeline](#1-data-pipeline-3-days)
+3. [2. Adaptive Windowing](#2-adaptive-windowing-4-days)
+4. [3. Dynamic Patching](#3-dynamic-patching-5-days)
+5. [4. Time-Aware Positional Embedding](#4-time-aware-positional-embedding-3-days)
+6. [5. Multivariate Feature Handler](#5-multivariate-feature-handler-2-days)
+7. [6. Training & Experimentation](#6-training--experimentation-7-days)
+8. [7. Reporting & Visualization](#7-reporting--visualization-3-days)
+9. [8. Contingency & Plan B](#8-contingency--plan-b-1-day)
+10. [9. Final Polish & Submission](#9-final-polish--submission-2-days)
+11. [Final Decisions Needed](#final-decisions-needed)
 
 ---
 
-### 2. Adaptive Windowing (4 days)
+## ✅ 0. Kick-off (1 day)
 
-| Task                                                                                                           | How to explain to anyone |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **2.1 Market Regime Finder** – calculate 5-day rolling volatility of log-returns.                              |                          |
-| **2.2 Volatility Normalization** – Normalized volatility → volatility_norm (0 to 1). Store                     |                          |
-| **2.3 Window Logic** – map volatility → window size (low vol = 50, high vol = 10). Store `window_len` per row. |                          |
-| **2.4 Adaptive Patch** – window data (ex: 37 round to nearest multiple of 8. so, 40).         |                          |
-| **2.5 Unit Test** – for a hand-made series, assert that high volatility shrinks the window.                    |                          |
-| **2.6 Notebook Demo** – plot volatility vs. chosen window length for one ticker; label axes and units.         |                          |
+| Task                                                                                                                                            | Goal                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| **0.1 Quick Sync** – 30-min call: confirm objective, extensions (Dynamic Patching, Time-Aware Embedding, Adaptive Windowing), deadlines, roles. | Align everyone and lock scope |
+| **0.2 Repo & Boards** – create / tidy GitHub repo, one ClickUp/Jira board with the same phase names as below.                                   | Organize project assets     |
+| **0.3 Baseline Check** – run the *exact* PatchTST weather benchmark command and store logs + metrics in `/baseline/`.                          | Baseline reproducibility    |
 
-**Done ✓** when a plot clearly shows window shrinking/growing with volatility and tests pass.
+✅ **Done when**: repo + board exist and baseline metrics are committed.
 
 ---
 
-### 3. Dynamic Patching (5 days)
+## 🛠 1. Data Pipeline (3 days)
 
-| Task                                                                                                                    | Layman description |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| **3.1 Patch Generator Refactor** – replace fixed `patch_len` with `patch_len = window_len // k` (choose `k = 3` first). |                    |
-| **3.2 Gap-Aware Slicer** – ensure patches never slice across holidays/weekends; skip gaps entirely.                     |                    |
-| **3.3 Patch Metadata** – record each patch’s **start\_date**, **end\_date**, **real\_len** so we can debug.             |                    |
-| **3.4 Distribution Check** – histogram of patch lengths; verify no zeros and reasonable spread.                         |                    |
-| **3.5 Ablation Toggle** – CLI flag `--dynamic_patching false` to fall back to original logic (contingency).             |                    |
+| Task                                                                                                                             | Plain-English Goal          |
+| -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| **1.1 Raw Grab** – download Kaggle S&P 500 OHLCV file to `/data/raw/`.                                                           | Source historical data      |
+| **1.2 Cleaning Script** – fill blanks, convert `Date` to `datetime`, keep only required columns.                                 | Ensure clean, usable data   |
+| **1.3 Holiday & Gap Flags** – add `is_holiday` (NYSE calendar) and `is_gap` (when `Date_i – Date_{i-1} > 1 day`).                | Tag weekends/holidays       |
+| **1.4 Derived Indicators** – compute RSI, SMA, EMA, MACD, ATR, daily log-return. Include formulas as comments.                   | Create technical signals    |
+| **1.5 10-Row Snapshot** – export a CSV with 10 representative rows.                                                              | Quick visual reference      |
 
-**Done ✓** when histogram looks right and the toggle works.
-
----
-
-### 4. Time-Aware Positional Embedding (3 days)
-
-| Task                                                                                                                 | Explanation |
-| -------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **4.1 Δt Vector** – compute time gap (days) between successive rows; normalize to 0–1.                               |             |
-| **4.2 Embedding Layer** – add *either* sinusoidal or learned embedding for `Δt`; pick whichever trains faster first. |             |
-| **4.3 Integration Test** – overfit on 100 rows and confirm loss goes down (proves wiring correct).                   |             |
-
-**Done ✓** when model trains without errors and `model.summary()` shows the new embedding layer.
+✅ **Done when**: `data/processed/train.csv` exists and the 10-row sample is committed.
 
 ---
 
-### 5. Multivariate Feature Handler (2 days)
+## 🔄 2. Adaptive Windowing (4 days)
 
-| Task                                                                                                                                  | Goal |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| **5.1 Feature Stack** – combine OHLCV + indicators into one tensor `[batch, seq, channels]`.                                          |      |
-| **5.2 Cross-Channel Attention** – switch PatchTST to **joint** attention (not channel-wise) by concatenating channels before patches. |      |
+| Task                                                                                                           | How to explain to anyone               |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **2.1 Market Regime Finder** – calculate 5-day rolling volatility of log-returns.                              | Track market turbulence                |
+| **2.2 Volatility Normalization** – Normalize to [0, 1] and store as `volatility_norm`.                         | Makes volatility scale consistent      |
+| **2.3 Window Logic** – Map volatility → window size (e.g., low vol = 50, high vol = 10). Store as `window_len`.| Dynamic patch control                  |
+| **2.4 Adaptive Patch** – Round each `window_len` to nearest multiple of 8.                                     | Stability for transformer batching     |
+| **2.5 Unit Test** – On toy data, confirm high volatility shrinks the window.                                   | Proves window logic works              |
+| **2.6 Notebook Demo** – Plot volatility vs. chosen window length; label axes.                                  | Visual explanation                     |
 
-**Done ✓** when a single forward pass works with >10 channels.
-
----
-
-### 6. Training & Experimentation (7 days)
-
-| Step                                                                                                                  | What happens |
-| --------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **6.1 Lightning Trainer** – migrate training loop to PyTorch Lightning for clean logs & checkpointing.                |              |
-| **6.2 First Full Run** – train Enhanced PatchTST on 10 tickers (AAPL…); log RMSE/MAE.                                 |              |
-| **6.3 Hyper-Param Grid** – search `d_model`, `n_heads`, `patch_len divisor k`, learning rate.                         |              |
-| **6.4 Ablations** – train three variants: **a)** no Δt embedding, **b)** no dynamic patch, **c)** no adaptive window. |              |
-| **6.5 Comparison Plots** – bar chart of RMSE across variants; include original PatchTST baseline.                     |              |
-
-**Done ✓** when results & plots are pushed to `/results/phase6/` and README explains wins/losses.
+✅ **Done when**: plot clearly shows adaptive shrinking/growing windows and tests pass.
 
 ---
 
-### 7. Reporting & Visualization (3 days)
+## ⚙️ 3. Dynamic Patching (5 days)
 
-| Deliverable                                                                                                                      | Checklist |
-| -------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| **7.1 Architecture Diagram** – update the coloured block diagram (input → windowing → dynamic patches → transformer → forecast). |           |
-| **7.2 Graph Annotations** – each figure gets: title, X/Y labels with units, 1-line caption.                                      |           |
-| **7.3 Layman Write-up** – a 2-page summary explaining *why* each extension matters, no jargon.                                   |           |
-| **7.4 Appendix** – include formulas, 10-row data sample, hardware specs table.                                                   |           |
+| Task                                                                                                                    | Layman description                                |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **3.1 Patch Generator Refactor** – replace fixed `patch_len` with `patch_len = window_len // k` (start with `k=3`).     | Patch size adapts to window                       |
+| **3.2 Gap-Aware Slicer** – skip patches that cross holidays or weekends.                                                | Prevents broken input                             |
+| **3.3 Patch Metadata** – record each patch’s `start_date`, `end_date`, and `real_len`.                                  | Easier debugging and visualization                |
+| **3.4 Distribution Check** – plot histogram of patch lengths; no zeros, reasonable range.                              | Sanity check on patch generator                   |
+| **3.5 Ablation Toggle** – add `--dynamic_patching false` flag to fallback to static logic.                             | For fair comparison and backup                    |
 
-**Done ✓** when Word doc draft is ready for faculty review.
-
----
-
-### 8. Contingency & Plan B (1 day)
-
-| What if results disappoint?                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------- |
-| **8.1 Fallback Config** – original PatchTST + simple feature scaling (acts as base).                                  |
-| **8.2 Rollback Script** – bash script `run_baseline.sh` reproducibly gets baseline numbers in <1 h on Colab.          |
-| **8.3 Decision Matrix** – if Enhanced RMSE ≤ baseline × 1.05 by July 5 → keep; else present fallback in final report. |
-
-**Done ✓** when fallback run completes and matrix is in repo.
+✅ **Done when**: histogram looks correct and CLI toggle works end-to-end.
 
 ---
 
-### 9. Final Polish & Submission (2 days)
+## 🧭 4. Time-Aware Positional Embedding (3 days)
 
-1. Freeze code (`git tag v1.0-final`).
-2. Run `pytest` – all unit tests green.
-3. Zip `src/`, `results/`, report and push to LMS/GitHub.
-4. 15-slide deck + 5-min demo video.
+| Task                                                                                                                 | Explanation                          |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **4.1 Δt Vector** – compute normalized time gap (days) between each row.                                            | Captures irregularity in timestamps  |
+| **4.2 Embedding Layer** – Add sinusoidal or learned embedding for Δt.                                               | Time gaps as transformer tokens      |
+| **4.3 Integration Test** – Overfit on 100 rows; loss must decrease.                                                 | Proves the code is wired correctly   |
 
-**Done ✓** when upload confirmation is received.
+✅ **Done when**: model trains without error and `model.summary()` shows time-aware embedding layer.
 
 ---
 
-## What You Might Still Need
+## 📊 5. Multivariate Feature Handler (2 days)
 
-* **Exact hardware** you plan to train on (JS2? Colab Pro? local GPU) – affects training schedule.
-* **Choice of hyper-param tuner** (manual grid vs. Optuna).
-* **List of final tickers** (all S\&P 500 or top 50?).
+| Task                                                                                                                             | Goal                                  |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **5.1 Feature Stack** – combine OHLCV + indicators into one tensor `[batch, seq, channels]`.                                     | Multivariate forecasting              |
+| **5.2 Cross-Channel Attention** – apply joint attention (concatenate channels before patching).                                  | Let model learn cross-feature dynamics|
 
-Let me know if any of these details are undecided, and I’ll slot them into the roadmap.
+✅ **Done when**: forward pass works with 10+ input channels.
+
+---
+
+## 🔁 6. Training & Experimentation (7 days)
+
+| Step                                                                                                                  | What happens                          |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **6.1 Lightning Trainer** – convert training loop to PyTorch Lightning.                                               | Cleaner logs, callbacks, checkpoints  |
+| **6.2 First Full Run** – train Enhanced PatchTST on 10 tickers (AAPL, MSFT, etc.).                                    | Baseline performance on target data   |
+| **6.3 Hyper-Param Grid** – search `d_model`, `n_heads`, `patch_len divisor k`, learning rate.                         | Optimize model performance            |
+| **6.4 Ablations** – train 3 variants: (a) no Δt embedding, (b) no dynamic patch, (c) no adaptive window.              | Prove each module's importance        |
+| **6.5 Comparison Plots** – RMSE bar chart for each variant + original PatchTST.                                       | Visualize the impact of improvements  |
+
+✅ **Done when**: results + plots are in `/results/phase6/` and README explains model wins/losses.
+
+---
+
+## 📝 7. Reporting & Visualization (3 days)
+
+| Deliverable                                                                                                                      | Checklist                            |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **7.1 Architecture Diagram** – block diagram: input → windowing → dynamic patches → transformer → forecast.                     | System view for report                |
+| **7.2 Graph Annotations** – each plot must include title, axis labels with units, and caption.                                  | Scientific visualization              |
+| **7.3 Layman Write-up** – a 2-page jargon-free summary of key ideas.                                                            | For final presentation/report         |
+| **7.4 Appendix** – include indicator formulas, 10-row data sample, and hardware used.                                            | Completeness                          |
+
+✅ **Done when**: Word draft is ready and plots are publication-ready.
+
+---
+
+## 🧯 8. Contingency & Plan B (1 day)
+
+| Task                                                                                                          | Purpose                      |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **8.1 Fallback Config** – original PatchTST + static patch_len only.                                          | Baseline safety net          |
+| **8.2 Rollback Script** – `run_baseline.sh` gets baseline metrics in <1 hr on Colab.                          | Reproducibility              |
+| **8.3 Decision Matrix** – If Enhanced RMSE ≤ baseline × 1.05 → keep; else fallback in final report.           | Clear judgment rule          |
+
+✅ **Done when**: fallback run finishes and matrix is added to the repo.
+
+---
+
+## 🧹 9. Final Polish & Submission (2 days)
+
+1. Freeze code (`git tag v1.0-final`)
+2. Ensure `pytest` passes all unit tests
+3. Zip `src/`, `results/`, and report → submit to LMS/GitHub
+4. Deliver 15-slide deck + 5-min demo video
+
+✅ **Done when**: confirmation email is received for successful submission.
+
+---
+
+## ❗ Final Decisions Needed
+
+- [ ] Final hardware (Colab Pro / local GPU / JS2?) **JS2**
+- [ ] Optuna or manual hyper-parameter search?
+- [ ] Exact tickers (top 10? full S&P 500 subset?)
+
+---
