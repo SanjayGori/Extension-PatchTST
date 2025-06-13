@@ -192,7 +192,7 @@ class Dataset_ETT_minute(Dataset):
 class Dataset_Custom(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+                 target='OT', scale=True, timeenc=0, freq='h', use_dynamic_patch=False):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -216,6 +216,7 @@ class Dataset_Custom(Dataset):
 
         self.root_path = root_path
         self.data_path = data_path
+        self.use_dynamic_patch = use_dynamic_patch 
         self.__read_data__()
 
     def __read_data__(self):
@@ -270,9 +271,25 @@ class Dataset_Custom(Dataset):
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
 
+        # Add this to extract and slice dynamic_patch_len
+        if 'dynamic_patch_len' in df_raw.columns:
+            self.dynamic_patch_len = df_raw['dynamic_patch_len'].values[border1:border2]
+        else:
+            print("[Warning] Column 'dynamic_patch_len' not found in CSV. Skipping dynamic patching.")
+            self.dynamic_patch_len = None
+
     def __getitem__(self, index):
+
+        # --- Get patch length per sample ---
+        k = 3
+        if self.dynamic_patch_len is not None:
+            patch_len = int(self.dynamic_patch_len[index] // k)
+            patch_len = max(patch_len, 1)  # ensure it's at least 1
+        else:
+            patch_len = self.seq_len  # fallback if dynamic patching is not used
+
         s_begin = index
-        s_end = s_begin + self.seq_len
+        s_end = s_begin + patch_len
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
@@ -281,7 +298,7 @@ class Dataset_Custom(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, patch_len
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1

@@ -8,6 +8,10 @@ import numpy as np
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
+    # Dynamic Patching config
+    parser.add_argument('--use_dynamic_patch', action='store_true', help='Use dynamic patching logic')
+    parser.add_argument('--k_patch_div', type=int, default=3, help='patch_len = seq_len // k')
+
     # random seed
     parser.add_argument('--random_seed', type=int, default=2021, help='random seed')
 

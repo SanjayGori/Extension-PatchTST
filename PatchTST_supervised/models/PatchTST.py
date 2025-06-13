@@ -77,7 +77,11 @@ class Model(nn.Module):
                                   subtract_last=subtract_last, verbose=verbose, **kwargs)
     
     
-    def forward(self, x):           # x: [Batch, Input length, Channel]
+    def forward(self, x, x_mark=None, dec_inp=None, y_mark=None, y=None, patch_len=None):           # x: [Batch, Input length, Channel]
+        
+        if patch_len is not None:
+            patch_len = patch_len.item() if isinstance(patch_len, torch.Tensor) else int(patch_len)
+
         if self.decomposition:
             res_init, trend_init = self.decomp_module(x)
             res_init, trend_init = res_init.permute(0,2,1), trend_init.permute(0,2,1)  # x: [Batch, Channel, Input length]
