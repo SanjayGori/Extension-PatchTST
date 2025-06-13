@@ -6,17 +6,17 @@ This project enhances the PatchTST model for financial time series forecasting u
 
 ## 📚 Table of Contents
 
-1. [0. Kick-off](#0-kick-off-1-day)
-2. [1. Data Pipeline](#1-data-pipeline-3-days)
-3. [2. Adaptive Windowing](#2-adaptive-windowing-4-days)
-4. [3. Dynamic Patching](#3-dynamic-patching-5-days)
-5. [4. Time-Aware Positional Embedding](#4-time-aware-positional-embedding-3-days)
-6. [5. Multivariate Feature Handler](#5-multivariate-feature-handler-2-days)
-7. [6. Training & Experimentation](#6-training--experimentation-7-days)
-8. [7. Reporting & Visualization](#7-reporting--visualization-3-days)
-9. [8. Contingency & Plan B](#8-contingency--plan-b-1-day)
-10. [9. Final Polish & Submission](#9-final-polish--submission-2-days)
-11. [Final Decisions Needed](#final-decisions-needed)
+0. [0. Kick-off](#-0-kick-off-1-day)
+1. [1. Data Pipeline](#-1-data-pipeline-3-days)
+2. [2. Adaptive Windowing](#-2-adaptive-windowing-4-days)
+3. [3. Dynamic Patching](#-3-dynamic-patching-5-days)
+4. [4. Time-Aware Positional Embedding](#-4-time-aware-positional-embedding-3-days)
+5. [5. Multivariate Feature Handler](#-5-multivariate-feature-handler-2-days)
+6. [6. Training & Experimentation](#-6-training--experimentation-7-days)
+7. [7. Reporting & Visualization](#-7-reporting--visualization-3-days)
+8. [8. Contingency & Plan B](#-8-contingency--plan-b-1-day)
+9. [9. Final Polish & Submission](#-9-final-polish--submission-2-days)
+10. [Final Decisions Needed](#final-decisions-needed)
 
 ---
 
