@@ -9,7 +9,7 @@ This project enhances the PatchTST model for financial time series forecasting u
 0. [0. Kick-off](#-0-kick-off-1-day)
 1. [1. Data Pipeline](#-1-data-pipeline-3-days)
 2. [2. Adaptive Windowing](#-2-adaptive-windowing-4-days)
-3. [3. Dynamic Patching](#-3-dynamic-patching-5-days)
+3. [3. Dynamic Patching](#%EF%B8%8F-3-dynamic-patching-5-days)
 4. [4. Time-Aware Positional Embedding](#-4-time-aware-positional-embedding-3-days)
 5. [5. Multivariate Feature Handler](#-5-multivariate-feature-handler-2-days)
 6. [6. Training & Experimentation](#-6-training--experimentation-7-days)
