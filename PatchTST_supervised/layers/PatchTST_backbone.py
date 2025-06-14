@@ -57,7 +57,7 @@ class PatchTST_backbone(nn.Module):
             self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
         
     
-    def forward(self, z: Tensor, patch_lens: Optional[Tensor] = None) -> Tensor             # z: [bs x nvars x seq_len]
+    def forward(self, z: Tensor, patch_lens: Optional[Tensor] = None) -> Tensor:             # z: [bs x nvars x seq_len]
         # norm
         if self.revin: 
             z = z.permute(0,2,1)
