@@ -89,41 +89,45 @@ class PatchTST_backbone(nn.Module):
             self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
         
     
-    def forward(self, x):  # x: [B, L, C]
-        B, L, C = x.shape
+    def forward(self, x):  # x: [B, C, L]
+        B, C, L = x.shape  # C = number of variables
 
-        # Step 1: RevIN
-        if self.revin:
-            x = self.revin_layer(x, 'norm')
-
-        # Step 2: Transpose for patching
-        x = x.permute(0, 2, 1)  # [B, C, L]
-
-        # Step 3: Padding if needed for dynamic patching
-        seq_len = x.shape[-1]
-        if seq_len < self.patch_len:
-            pad_len = self.patch_len - seq_len
+        # Ensure sequence length is enough for patching
+        if L < self.patch_len:
+            pad_len = self.patch_len - L
             x = F.pad(x, (0, pad_len), mode='replicate')
 
+        # Padding for stride compatibility
         if self.padding_patch == 'end':
             pad_len = (self.stride - (x.shape[-1] - self.patch_len) % self.stride) % self.stride
             if pad_len > 0:
                 x = F.pad(x, (0, pad_len), mode='replicate')
 
-        # Step 4: Extract overlapping patches manually
         L_pad = x.shape[-1]
-        patch_num = int((L_pad - self.patch_len) // self.stride + 1)
-        x_patched = x.unfold(dimension=2, size=self.patch_len, step=self.stride)  # [B, C, patch_len, patch_num]
+        patch_num = (L_pad - self.patch_len) // self.stride + 1
 
-        # Step 5: Backbone encoding
-        x = self.backbone(x_patched)  # [B, N*C]
+        # Unfold to patches [B, C, patch_len, patch_num]
+        x = x.unfold(dimension=2, size=self.patch_len, step=self.stride)  # shape: [B, C, patch_len, patch_num]
+        x = x.contiguous()
 
-        # Step 6: Head
-        x = self.head(x)  # [B, C, T]
+        # Prepare for linear projection: merge C and patch_len
+        x = x.permute(0, 3, 1, 2)  # [B, patch_num, C, patch_len]
+        x = x.reshape(B, patch_num, -1)  # [B, patch_num, C * patch_len]
 
-        # Step 7: Inverse RevIN
-        if self.revin:
-            x = self.revin_layer(x, 'denorm')
+        # Project: [B, patch_num, d_model]
+        x = self.W_P(x)
+
+        # Add positional encoding
+        if self.use_pos:
+            x = x + self.P[:, :patch_num].clone().detach()
+
+        x = self.dropout(x)
+
+        # Encoder
+        for layer in self.encoder:
+            x = layer(x)
+
+        x = self.norm(x)
 
         return x
     
