@@ -68,6 +68,11 @@ class PatchTST_backbone(nn.Module):
         elif head_type == 'flatten': 
             self.head = None
         
+        # Dummy backbone and head to avoid optimizer empty param error
+        self.head_nf = d_model  # assume dummy patch_num = 1
+        self.backbone = nn.Identity()
+        self.head = nn.Identity()
+        
     
     def forward(self, x):  # x: [B, L, C]
         B, L, C = x.shape
@@ -87,20 +92,25 @@ class PatchTST_backbone(nn.Module):
 
         # Step 4: Get updated input length
         L_pad = x.shape[-1]
-        patch_num = (L_pad - self.patch_len) // self.stride + 1
+        patch_num = int((L_pad - self.patch_len) // self.stride + 1)
 
         # Step 5: Lazy initialize backbone if not yet
-        if self.backbone is None:
+        if isinstance(self.backbone, nn.Identity):
+            patch_num = compute_patch_num_from_input(x, self.patch_len, self.stride)
+            
+            # Build actual backbone
             self.backbone = TSTiEncoder(
-                self.n_vars, patch_num=patch_num, patch_len=self.patch_len, max_seq_len=L_pad,
-                n_layers=self.n_layers, d_model=self.d_model, n_heads=self.n_heads,
-                d_k=self.d_k, d_v=self.d_v, d_ff=self.d_ff, attn_dropout=self.attn_dropout,
-                dropout=self.dropout, act=self.act, key_padding_mask=self.key_padding_mask,
+                c_in=self.n_vars, patch_num=patch_num, patch_len=self.patch_len, max_seq_len=self.target_window,
+                n_layers=self.n_layers, d_model=self.d_model, n_heads=self.n_heads, d_k=self.d_k, d_v=self.d_v,
+                d_ff=self.d_ff, attn_dropout=0.0, dropout=0.0, act=self.act, key_padding_mask=self.key_padding_mask,
                 padding_var=self.padding_var, attn_mask=self.attn_mask, res_attention=self.res_attention,
-                pre_norm=self.pre_norm, store_attn=self.store_attn, pe=self.pe,
-                learn_pe=self.learn_pe, verbose=False
+                pre_norm=self.pre_norm, store_attn=self.store_attn, pe=self.pe,learn_pe=self.learn_pe
             )
+
+            # Update head
             self.head_nf = self.d_model * patch_num
+            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, self.target_window, head_dropout=self.head_dropout)
+
 
             # initialize head
             if self.pretrain_head:
