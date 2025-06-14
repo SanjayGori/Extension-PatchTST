@@ -56,14 +56,14 @@ class Exp_Main(Exp_Basic):
             try:
                 import pandas as pd
                 df = pd.read_csv(os.path.join(self.args.root_path, self.args.data_path))
-                if 'DynamicPatch' in df.columns:
-                    avg_patch = int(df['DynamicPatch'].dropna().mean())
+                if 'dynamic_patch_len' in df.columns:
+                    avg_patch = int(df['dynamic_patch_len'].dropna().mean())
                     self.args.patch_len = max(4, avg_patch)  # Set lower bound
-                    print(f"[DynamicPatch] Patch length overridden using dataset: {self.args.patch_len}")
+                    print(f"[dynamic_patch_len] Patch length overridden using dataset: {self.args.patch_len}")
                 else:
-                    print("[DynamicPatch] 'DynamicPatch' column not found in dataset.")
+                    print("[dynamic_patch_len] 'dynamic_patch_len' column not found in dataset.")
             except Exception as e:
-                print(f"[DynamicPatch] Failed to override patch_len from data: {e}")
+                print(f"[dynamic_patch_len] Failed to override patch_len from data: {e}")
         
         return data_set, data_loader
 

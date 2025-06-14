@@ -59,19 +59,34 @@ class PatchTST_backbone(nn.Module):
         self.individual = individual
 
         # Lazy initialize later in forward()
-        self.backbone = None
         self.head = None
-        self.head_nf = None
 
-        if self.pretrain_head: 
-            self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout) # custom head passed as a partial func with all its kwargs
-        elif head_type == 'flatten': 
-            self.head = None
-        
-        # Dummy backbone and head to avoid optimizer empty param error
-        self.head_nf = d_model  # assume dummy patch_num = 1
-        self.backbone = nn.Identity()
-        self.head = nn.Identity()
+        # Calculate patch_num
+        patch_num = int((context_window - patch_len) / stride + 1)
+        if padding_patch == 'end':
+            self.padding_patch_layer = nn.ReplicationPad1d((0, stride))
+            patch_num += 1
+
+        # Build the real backbone
+        self.backbone = TSTiEncoder(
+            c_in=c_in, patch_num=patch_num, patch_len=patch_len, max_seq_len=max_seq_len,
+            n_layers=n_layers, d_model=d_model, n_heads=n_heads, d_k=d_k, d_v=d_v, d_ff=d_ff,
+            attn_dropout=attn_dropout, dropout=dropout, act=act, key_padding_mask=key_padding_mask,
+            padding_var=padding_var, attn_mask=attn_mask, res_attention=res_attention,
+            pre_norm=pre_norm, store_attn=store_attn, pe=pe, learn_pe=learn_pe, verbose=verbose, **kwargs
+        )
+
+        # Head
+        self.head_nf = d_model * patch_num
+        self.n_vars = c_in
+        self.pretrain_head = pretrain_head
+        self.head_type = head_type
+        self.individual = individual
+
+        if self.pretrain_head:
+            self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout)
+        elif head_type == 'flatten':
+            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
         
     
     def forward(self, x):  # x: [B, L, C]
