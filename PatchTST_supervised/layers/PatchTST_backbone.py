@@ -56,7 +56,7 @@ class PatchTST_backbone(nn.Module):
         if self.pretrain_head: 
             self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout) # custom head passed as a partial func with all its kwargs
         elif head_type == 'flatten': 
-            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
+            self.head = None
         
     
     def forward(self, z: Tensor, patch_lens: Optional[Tensor] = None) -> Tensor:             # z: [bs x nvars x seq_len]
