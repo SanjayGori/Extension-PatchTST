@@ -23,35 +23,45 @@ class PatchTST_backbone(nn.Module):
                  verbose:bool=False, **kwargs):
         
         super().__init__()
+
+        # 🧠 STORE args for use in forward
+        self.patch_len = patch_len
+        self.n_layers = n_layers
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.d_k = d_k
+        self.d_v = d_v
+        self.d_ff = d_ff
+        self.act = act
+        self.key_padding_mask = key_padding_mask
+        self.padding_var = padding_var
+        self.attn_mask = attn_mask
+        self.res_attention = res_attention
+        self.pre_norm = pre_norm
+        self.store_attn = store_attn
+        self.pe = pe
+        self.learn_pe = learn_pe
+        self.fc_dropout = fc_dropout
+        self.head_dropout = head_dropout
+        self.target_window = target_window
         
-        # RevIn
+        # RevIN
         self.revin = revin
-        if self.revin: self.revin_layer = RevIN(c_in, affine=affine, subtract_last=subtract_last)
-        
-        # Patching
-        #self.patch_len = patch_len
+        if self.revin:
+            self.revin_layer = RevIN(c_in, affine=affine, subtract_last=subtract_last)
+
+        # Store other config
         self.stride = stride
         self.padding_patch = padding_patch
-        #patch_num = int((context_window - patch_len)/stride + 1)
-        #if padding_patch == 'end': # can be modified to general case
-        #    self.padding_patch_layer = nn.ReplicationPad1d((0, stride)) 
-        #    patch_num += 1
-        
-        # Backbone 
-        self.backbone = None
-        #self.backbone = TSTiEncoder(c_in, patch_num=patch_num, patch_len=patch_len, max_seq_len=max_seq_len,
-        #                        n_layers=n_layers, d_model=d_model, n_heads=n_heads, d_k=d_k, d_v=d_v, d_ff=d_ff,
-        #                        attn_dropout=attn_dropout, dropout=dropout, act=act, key_padding_mask=key_padding_mask, padding_var=padding_var,
-        #                        attn_mask=attn_mask, res_attention=res_attention, pre_norm=pre_norm, store_attn=store_attn,
-        #                        pe=pe, learn_pe=learn_pe, verbose=verbose, **kwargs)
-
-        # Head
-        self.head_nf = None
-        #self.head_nf = d_model * patch_num
         self.n_vars = c_in
         self.pretrain_head = pretrain_head
         self.head_type = head_type
         self.individual = individual
+
+        # Lazy initialize later in forward()
+        self.backbone = None
+        self.head = None
+        self.head_nf = None
 
         if self.pretrain_head: 
             self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout) # custom head passed as a partial func with all its kwargs
@@ -59,88 +69,54 @@ class PatchTST_backbone(nn.Module):
             self.head = None
         
     
-    def forward(self, z: Tensor, patch_lens: Optional[Tensor] = None) -> Tensor:             # z: [bs x nvars x seq_len]
-        # norm
-        if self.revin: 
-            z = z.permute(0,2,1)
-            z = self.revin_layer(z, 'norm')
-            z = z.permute(0,2,1)
-            
-        # do patching
-        if patch_lens is not None:
-            patches = []
-            patch_nums = []
-            for i in range(z.size(0)):  # iterate over batch
-                patch_len = patch_lens[i].item()  # dynamic length for sample i
-                z_i = z[i].unsqueeze(0)  # [1, nvars, seq_len]
-                
-                # Unfold to extract patches
-                z_i = z_i.unfold(dimension=-1, size=patch_len, step=self.stride)  # [1, nvars, patch_num, patch_len]
-                
-                patch_num = z_i.shape[-2]
-                z_i = z_i.permute(0, 1, 3, 2)  # [1, nvars, patch_len, patch_num]
-                
-                patches.append(z_i)
-                patch_nums.append(patch_num)
+    def forward(self, x):  # x: [B, L, C]
+        B, L, C = x.shape
 
-            # Concatenate all samples back into batch
-            z = torch.cat(patches, dim=0)  # [bs, nvars, patch_len, patch_num]
-            z = z.permute(0, 1, 3, 2)      # [bs, nvars, patch_num, patch_len]
+        # Step 1: RevIN
+        if self.revin:
+            x = self.revin_layer(x, 'norm')
 
-            # Dynamically set patch_num and patch_len
-            patch_num = z.shape[2]
-            patch_len = z.shape[3]
+        # Step 2: Transpose for patching
+        x = x.permute(0, 2, 1)  # [B, C, L]
 
-            # Create TST encoder backbone dynamically for this config
+        # Step 3: Padding if needed
+        if self.padding_patch == 'end':
+            pad_len = (self.stride - (L - self.patch_len) % self.stride) % self.stride
+            if pad_len > 0:
+                x = F.pad(x, (0, pad_len), mode='replicate')
+
+        # Step 4: Get updated input length
+        L_pad = x.shape[-1]
+        patch_num = (L_pad - self.patch_len) // self.stride + 1
+
+        # Step 5: Lazy initialize backbone if not yet
+        if self.backbone is None:
             self.backbone = TSTiEncoder(
-                c_in=self.n_vars,
-                patch_num=patch_num,
-                patch_len=patch_len,
-                max_seq_len=patch_num,
-                n_layers=kwargs.get("n_layers", 3),
-                d_model=kwargs.get("d_model", 128),
-                n_heads=kwargs.get("n_heads", 16),
-                d_k=kwargs.get("d_k", None),
-                d_v=kwargs.get("d_v", None),
-                d_ff=kwargs.get("d_ff", 256),
-                norm=kwargs.get("norm", 'BatchNorm'),
-                attn_dropout=kwargs.get("attn_dropout", 0.),
-                dropout=kwargs.get("dropout", 0.),
-                act=kwargs.get("act", "gelu"),
-                key_padding_mask=kwargs.get("key_padding_mask", 'auto'),
-                padding_var=kwargs.get("padding_var", None),
-                attn_mask=kwargs.get("attn_mask", None),
-                res_attention=kwargs.get("res_attention", True),
-                pre_norm=kwargs.get("pre_norm", False),
-                store_attn=kwargs.get("store_attn", False),
-                pe=kwargs.get("pe", "zeros"),
-                learn_pe=kwargs.get("learn_pe", True),
-                verbose=kwargs.get("verbose", False)
+                self.n_vars, patch_num=patch_num, patch_len=self.patch_len, max_seq_len=L_pad,
+                n_layers=self.n_layers, d_model=self.d_model, n_heads=self.n_heads,
+                d_k=self.d_k, d_v=self.d_v, d_ff=self.d_ff, attn_dropout=self.attn_dropout,
+                dropout=self.dropout, act=self.act, key_padding_mask=self.key_padding_mask,
+                padding_var=self.padding_var, attn_mask=self.attn_mask, res_attention=self.res_attention,
+                pre_norm=self.pre_norm, store_attn=self.store_attn, pe=self.pe,
+                learn_pe=self.learn_pe, verbose=False
             )
+            self.head_nf = self.d_model * patch_num
 
-            # Head setup
-            self.head_nf = kwargs.get("d_model", 128) * patch_num
-            if self.head_type == 'flatten':
-                self.head = Flatten_Head(
-                    self.individual,
-                    self.n_vars,
-                    self.head_nf,
-                    kwargs.get("target_window", 96),
-                    head_dropout=kwargs.get("head_dropout", 0)
-                )
-        else:
-            raise ValueError("Dynamic patching requires `patch_lens` to be provided.")
+            # initialize head
+            if self.pretrain_head:
+                self.head = self.create_pretrain_head(self.head_nf, self.n_vars, self.fc_dropout)
+            elif self.head_type == 'flatten':
+                self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, self.target_window, head_dropout=self.head_dropout)
 
-        # model
-        z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]
-        z = self.head(z)                                                                    # z: [bs x nvars x target_window] 
-        
-        # denorm
-        if self.revin: 
-            z = z.permute(0,2,1)
-            z = self.revin_layer(z, 'denorm')
-            z = z.permute(0,2,1)
-        return z
+        # Step 6: Forward through backbone and head
+        x = self.backbone(x)  # [B, N*C]
+        x = self.head(x)      # [B, C, T]
+
+        # Step 7: Inverse RevIN
+        if self.revin:
+            x = self.revin_layer(x, 'denorm')
+
+        return x
     
     def create_pretrain_head(self, head_nf, vars, dropout):
         return nn.Sequential(nn.Dropout(dropout),
