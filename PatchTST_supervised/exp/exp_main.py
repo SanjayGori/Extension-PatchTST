@@ -50,6 +50,21 @@ class Exp_Main(Exp_Basic):
 
     def _get_data(self, flag):
         data_set, data_loader = data_provider(self.args, flag)
+
+        # PATCH REF: Step 3.2 - Data-Driven Patch Length
+        if self.args.use_dynamic_patch and flag == 'train':
+            try:
+                import pandas as pd
+                df = pd.read_csv(os.path.join(self.args.root_path, self.args.data_path))
+                if 'DynamicPatch' in df.columns:
+                    avg_patch = int(df['DynamicPatch'].dropna().mean())
+                    self.args.patch_len = max(4, avg_patch)  # Set lower bound
+                    print(f"[DynamicPatch] Patch length overridden using dataset: {self.args.patch_len}")
+                else:
+                    print("[DynamicPatch] 'DynamicPatch' column not found in dataset.")
+            except Exception as e:
+                print(f"[DynamicPatch] Failed to override patch_len from data: {e}")
+        
         return data_set, data_loader
 
     def _select_optimizer(self):
