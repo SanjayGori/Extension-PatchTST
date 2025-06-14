@@ -24,7 +24,7 @@ class PatchTST_backbone(nn.Module):
         
         super().__init__()
 
-        # 🧠 STORE args for use in forward
+        # STORE args for use in forward
         self.patch_len = patch_len
         self.n_layers = n_layers
         self.d_model = d_model
@@ -98,8 +98,8 @@ class PatchTST_backbone(nn.Module):
 
         # Step 2: Transpose for patching
         x = x.permute(0, 2, 1)  # [B, C, L]
-        
-        # Step 3: Padding if needed for dynamic patching
+
+        # Step 3: Padding if needed
         seq_len = x.shape[-1]
         if seq_len < self.patch_len:
             pad_len = self.patch_len - seq_len
@@ -110,17 +110,24 @@ class PatchTST_backbone(nn.Module):
             if pad_len > 0:
                 x = F.pad(x, (0, pad_len), mode='replicate')
 
-        # Step 4: Get updated input length
-        L_pad = x.shape[-1]
-        patch_num = int((L_pad - self.patch_len) // self.stride + 1)
+        # Step 4: Extract patches using unfold
+        x = x.unfold(dimension=2, size=self.patch_len, step=self.stride)  # [B, C, num_patches, patch_len]
+        x = x.permute(0, 1, 3, 2).contiguous()  # [B, C, patch_len, num_patches]
+        
+        # DEBUG: Log patching info before unfolding
+        print(f"[DEBUG] seq_len={seq_len}, padded_len={x.shape[-1]}, patch_len={self.patch_len}, stride={self.stride}, expected_patches={(x.shape[-1] - self.patch_len) // self.stride + 1}")
 
-        # Step 5: Backbone encoding
-        x = self.backbone(x)  # [B, N*C]
+        # Step 5: Reshape for backbone [B, C, patch_len, patch_num]
+        B, C, patch_len, patch_num = x.shape
+        x = x.reshape(B, C, patch_len * patch_num)  # flatten patches for backbone [B, C, L_patched]
 
-        # Step 6: Head
-        x = self.head(x)  # [B, C, T]
+        # Step 6: Backbone encoding
+        x = self.backbone(x)  # e.g., [B, N*C]
 
-        # Step 7: Inverse RevIN
+        # Step 7: Head
+        x = self.head(x)  # e.g., [B, C, T]
+
+        # Step 8: Inverse RevIN
         if self.revin:
             x = self.revin_layer(x, 'denorm')
 
