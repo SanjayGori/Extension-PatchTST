@@ -29,10 +29,10 @@ class PatchTST_backbone(nn.Module):
         if self.revin: self.revin_layer = RevIN(c_in, affine=affine, subtract_last=subtract_last)
         
         # Patching
-        self.patch_len = patch_len
+        #self.patch_len = patch_len
         self.stride = stride
         self.padding_patch = padding_patch
-        patch_num = int((context_window - patch_len)/stride + 1)
+        #patch_num = int((context_window - patch_len)/stride + 1)
         if padding_patch == 'end': # can be modified to general case
             self.padding_patch_layer = nn.ReplicationPad1d((0, stride)) 
             patch_num += 1
@@ -57,7 +57,7 @@ class PatchTST_backbone(nn.Module):
             self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
         
     
-    def forward(self, z):                                                                   # z: [bs x nvars x seq_len]
+    def forward(self, z: Tensor, patch_lens: Optional[Tensor] = None) -> Tensor             # z: [bs x nvars x seq_len]
         # norm
         if self.revin: 
             z = z.permute(0,2,1)
@@ -65,10 +65,18 @@ class PatchTST_backbone(nn.Module):
             z = z.permute(0,2,1)
             
         # do patching
-        if self.padding_patch == 'end':
-            z = self.padding_patch_layer(z)
-        z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)                   # z: [bs x nvars x patch_num x patch_len]
-        z = z.permute(0,1,3,2)                                                              # z: [bs x nvars x patch_len x patch_num]
+        if patch_lens is not None:
+             patches = []
+            for i in range(z.size(0)):  # batch-wise
+                patch_len = patch_lens[i].item()
+                z_i = z[i].unsqueeze(0)  # [1, nvars, seq_len]
+                z_i = z_i.unfold(dimension=-1, size=patch_len, step=self.stride)  # [1, nvars, patch_num, patch_len]
+                z_i = z_i.permute(0, 1, 3, 2)  # [1, nvars, patch_len, patch_num]
+                patches.append(z_i)
+            z = torch.cat(patches, dim=0)  # [bs, nvars, patch_len, patch_num]
+        else:
+            z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+            z = z.permute(0, 1, 3, 2)
         
         # model
         z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]
@@ -152,6 +160,10 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         # Encoder
         self.encoder = TSTEncoder(q_len, d_model, n_heads, d_k=d_k, d_v=d_v, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout, dropout=dropout,
                                    pre_norm=pre_norm, activation=act, res_attention=res_attention, n_layers=n_layers, store_attn=store_attn)
+        # Inside TSTiEncoder
+        def set_patch_num(self, patch_num):
+            self.seq_len = patch_num
+            self.W_pos = positional_encoding(self.W_pos.pe_type, self.W_pos.learn_pe, patch_num, self.W_pos.d_model)
 
         
     def forward(self, x) -> Tensor:                                              # x: [bs x nvars x patch_len x patch_num]
@@ -163,6 +175,9 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
 
         u = torch.reshape(x, (x.shape[0]*x.shape[1],x.shape[2],x.shape[3]))      # u: [bs * nvars x patch_num x d_model]
         u = self.dropout(u + self.W_pos)                                         # u: [bs * nvars x patch_num x d_model]
+
+        patch_num = z.size(-1)  # dynamic patch_num
+        self.backbone.set_patch_num(patch_num)
 
         # Encoder
         z = self.encoder(u)                                                      # z: [bs * nvars x patch_num x d_model]
