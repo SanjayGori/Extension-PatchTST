@@ -46,7 +46,8 @@ class PatchTST_backbone(nn.Module):
         #                        pe=pe, learn_pe=learn_pe, verbose=verbose, **kwargs)
 
         # Head
-        self.head_nf = d_model * patch_num
+        self.head_nf = None
+        #self.head_nf = d_model * patch_num
         self.n_vars = c_in
         self.pretrain_head = pretrain_head
         self.head_type = head_type
@@ -129,7 +130,7 @@ class PatchTST_backbone(nn.Module):
                 )
         else:
             raise ValueError("Dynamic patching requires `patch_lens` to be provided.")
-        
+
         # model
         z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]
         z = self.head(z)                                                                    # z: [bs x nvars x target_window] 
