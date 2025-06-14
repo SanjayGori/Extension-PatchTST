@@ -66,7 +66,7 @@ class PatchTST_backbone(nn.Module):
             
         # do patching
         if patch_lens is not None:
-             patches = []
+            patches = []
             for i in range(z.size(0)):  # batch-wise
                 patch_len = patch_lens[i].item()
                 z_i = z[i].unsqueeze(0)  # [1, nvars, seq_len]
