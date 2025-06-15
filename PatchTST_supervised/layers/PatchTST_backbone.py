@@ -99,7 +99,7 @@ class PatchTST_backbone(nn.Module):
         
     
     def forward(self, x):
-        # x: [B, C, T] = [batch, channels/vars, time]
+        # x: [B, C, T]
         B, C, T = x.shape
 
         if self.revin:
@@ -110,34 +110,37 @@ class PatchTST_backbone(nn.Module):
 
         # Use dynamic patch length if present
         patch_len = getattr(self, 'dynamic_patch_len', self.patch_len)
+        stride = self.stride
 
+        # Pad if needed
         if T < patch_len:
             pad_len = patch_len - T
-            x = F.pad(x, (0, pad_len))  # Pad on the right side (last dim)
+            x = F.pad(x, (0, pad_len))
             T = patch_len
 
-        # Unfold (patchify) time series into patches
-        x = x.unfold(dimension=-1, size=patch_len, step=self.stride)  # [B, C, patch_len, N_patches]
-        x = x.permute(0, 3, 1, 2).contiguous()  # [B, N_patches, C, patch_len]
+        # Patchify the input: [B, C, T] -> [B, C, patch_len, N_patches]
+        x = x.unfold(dimension=-1, size=patch_len, step=stride)  # [B, C, N_patches, patch_len]
+        x = x.permute(0, 2, 1, 3).contiguous()  # [B, N_patches, C, patch_len]
         x = x.view(B, -1, C * patch_len)       # [B, N_patches, C*patch_len]
 
-        # Reinitialize W_P if patch_len changed (dynamic)
-        if not hasattr(self, 'W_P') or self.W_P.in_features != C * patch_len:
-            self.W_P = nn.Linear(C * patch_len, self.d_model).to(x.device)
+        # Reinit W_P if patch_len has changed
+        in_features = C * patch_len
+        if not hasattr(self, 'W_P') or self.W_P.in_features != in_features:
+            self.W_P = nn.Linear(in_features, self.d_model).to(x.device)
 
         x = self.W_P(x)  # [B, N_patches, d_model]
 
-        # Apply positional encoding (if enabled)
+        # Positional embedding
         if self.pe == 'zeros' and self.pos_embed is not None:
             if self.pos_embed.shape[1] < x.shape[1]:
-                raise ValueError(f"pos_embed length {self.pos_embed.shape[1]} < number of patches {x.shape[1]}")
+                raise ValueError(f"pos_embed too short: {self.pos_embed.shape[1]} < {x.shape[1]}")
             x = x + self.pos_embed[:, :x.shape[1], :]  # [B, N, d_model]
 
-        # Pass through Transformer encoder
+        # Transformer encoder
         x = self.backbone(x)  # [B, N, d_model]
 
-        # Apply head
-        x = self.head(x)  # [B, C, target_window] (if using Flatten_Head)
+        # Prediction head
+        x = self.head(x)  # [B, C, pred_len]
 
         if self.revin:
             x = self.revin_layer(x, 'denorm')
