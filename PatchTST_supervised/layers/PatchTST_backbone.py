@@ -111,6 +111,11 @@ class PatchTST_backbone(nn.Module):
         # Use dynamic patch length if present
         patch_len = getattr(self, 'dynamic_patch_len', self.patch_len)
 
+        if T < patch_len:
+            pad_len = patch_len - T
+            x = F.pad(x, (0, pad_len))  # Pad on the right side (last dim)
+            T = patch_len
+
         # Unfold (patchify) time series into patches
         x = x.unfold(dimension=-1, size=patch_len, step=self.stride)  # [B, C, patch_len, N_patches]
         x = x.permute(0, 3, 1, 2).contiguous()  # [B, N_patches, C, patch_len]
