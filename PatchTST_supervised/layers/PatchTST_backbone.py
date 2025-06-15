@@ -99,18 +99,43 @@ class PatchTST_backbone(nn.Module):
         
     
     def forward(self, x):
-        # x: [B, N_patches, d_model]
-        B, N, D = x.shape
+        # x: [B, C, T] = [batch, channels/vars, time]
+        B, C, T = x.shape
 
-        # Positional encoding (if enabled and learnable)
+        if self.revin:
+            x = self.revin_layer(x, 'norm')
+
+        if self.padding_patch == 'end':
+            x = self.padding_patch_layer(x)
+
+        # Use dynamic patch length if present
+        patch_len = getattr(self, 'dynamic_patch_len', self.patch_len)
+
+        # Unfold (patchify) time series into patches
+        x = x.unfold(dimension=-1, size=patch_len, step=self.stride)  # [B, C, patch_len, N_patches]
+        x = x.permute(0, 3, 1, 2).contiguous()  # [B, N_patches, C, patch_len]
+        x = x.view(B, -1, C * patch_len)       # [B, N_patches, C*patch_len]
+
+        # Reinitialize W_P if patch_len changed (dynamic)
+        if not hasattr(self, 'W_P') or self.W_P.in_features != C * patch_len:
+            self.W_P = nn.Linear(C * patch_len, self.d_model).to(x.device)
+
+        x = self.W_P(x)  # [B, N_patches, d_model]
+
+        # Apply positional encoding (if enabled)
         if self.pe == 'zeros' and self.pos_embed is not None:
-            if self.pos_embed.shape[1] < N:
-                raise ValueError(f"Positional embedding length {self.pos_embed.shape[1]} is smaller than number of patches {N}")
-            x = x + self.pos_embed[:, :N, :]  # [B, N, D]
+            if self.pos_embed.shape[1] < x.shape[1]:
+                raise ValueError(f"pos_embed length {self.pos_embed.shape[1]} < number of patches {x.shape[1]}")
+            x = x + self.pos_embed[:, :x.shape[1], :]  # [B, N, d_model]
 
-        # Transformer encoder
-        for layer in self.encoder_layers:
-            x = layer(x)  # still [B, N, D]
+        # Pass through Transformer encoder
+        x = self.backbone(x)  # [B, N, d_model]
+
+        # Apply head
+        x = self.head(x)  # [B, C, target_window] (if using Flatten_Head)
+
+        if self.revin:
+            x = self.revin_layer(x, 'denorm')
 
         return x
     
