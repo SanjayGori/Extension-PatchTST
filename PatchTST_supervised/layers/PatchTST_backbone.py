@@ -93,46 +93,18 @@ class PatchTST_backbone(nn.Module):
         
     
     def forward(self, x):
-        # x: [B, C, T]
-        B, C, T = x.shape
+        # x: [B, N_patches, d_model]
+        B, N, D = x.shape
 
-        # Apply RevIN normalization if enabled
-        if self.revin:
-            x = self.revin_layer(x, 'norm')
+        # Positional encoding (if enabled and learnable)
+        if self.pe == 'zeros' and self.pos_embed is not None:
+            if self.pos_embed.shape[1] < N:
+                raise ValueError(f"Positional embedding length {self.pos_embed.shape[1]} is smaller than number of patches {N}")
+            x = x + self.pos_embed[:, :N, :]  # [B, N, D]
 
-        # Padding at the end if needed
-        if self.padding_patch == 'end':
-            x = self.padding_patch_layer(x)
-
-        # Clamp patch_len if input is too short
-        effective_patch_len = min(self.patch_len, T)
-        if effective_patch_len > T:
-            raise ValueError(f"Effective patch_len {effective_patch_len} is greater than input length {T}")
-
-        # Step 1: Patchify input safely
-        if T < effective_patch_len:
-            raise ValueError(f"Input length {T} is smaller than patch_len {effective_patch_len}")
-        x = x.unfold(dimension=-1, size=effective_patch_len, step=self.stride)  # [B, C, patch_len, N_patches]
-
-        # Step 2: Reshape to [B, NumPatches, C * patch_len]
-        x = x.permute(0, 3, 1, 2).contiguous()  # [B, N_patches, C, patch_len]
-        x = x.view(B, -1, C * effective_patch_len)  # [B, N_patches, C * patch_len]
-
-        # Step 3: Handle W_P projection
-        if not hasattr(self, 'W_P') or self.W_P.in_features != C * effective_patch_len:
-            self.W_P = nn.Linear(C * effective_patch_len, self.d_model).to(x.device)
-
-        x = self.W_P(x)  # [B, N_patches, d_model]
-
-        # Step 4: Transformer
-        x = self.backbone(x)
-
-        # Step 5: Head
-        x = self.head(x)
-
-        # Step 6: Denormalize
-        if self.revin:
-            x = self.revin_layer(x, 'denorm')
+        # Transformer encoder
+        for layer in self.encoder_layers:
+            x = layer(x)  # still [B, N, D]
 
         return x
     
