@@ -67,6 +67,9 @@ class PatchTST_backbone(nn.Module):
             self.padding_patch_layer = nn.ReplicationPad1d((0, stride))
             patch_num += 1
 
+        # ADDED LINEAR PROJECTION for dynamic patching 
+        self.W_P = nn.Linear(c_in * patch_len, d_model)
+
         # Build the real backbone
         self.backbone = TSTiEncoder(
             c_in=c_in, patch_num=patch_num, patch_len=patch_len, max_seq_len=max_seq_len,
