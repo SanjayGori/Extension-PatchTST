@@ -92,45 +92,38 @@ class PatchTST_backbone(nn.Module):
             self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
         
     
-    def forward(self, x):  # x: [B, C, L]
-        B, C, L = x.shape  # C = number of variables
+    def forward(self, x):
+        # x: [B, C, T]
+        B, C, T = x.shape
 
-        # Ensure sequence length is enough for patching
-        if L < self.patch_len:
-            pad_len = self.patch_len - L
-            x = F.pad(x, (0, pad_len), mode='replicate')
+        # Apply RevIN normalization if enabled
+        if self.revin:
+            x = self.revin_layer(x, 'norm')
 
-        # Padding for stride compatibility
+        # Padding at the end if needed
         if self.padding_patch == 'end':
-            pad_len = (self.stride - (x.shape[-1] - self.patch_len) % self.stride) % self.stride
-            if pad_len > 0:
-                x = F.pad(x, (0, pad_len), mode='replicate')
+            x = self.padding_patch_layer(x)
 
-        L_pad = x.shape[-1]
-        patch_num = (L_pad - self.patch_len) // self.stride + 1
+        # Step 1: Patchify input
+        # Shape after unfold: [B, C, patch_len, NumPatches]
+        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
 
-        # Unfold to patches [B, C, patch_len, patch_num]
-        x = x.unfold(dimension=2, size=self.patch_len, step=self.stride)  # shape: [B, C, patch_len, patch_num]
-        x = x.contiguous()
+        # Step 2: Rearrange to [B, NumPatches, C * patch_len]
+        x = x.permute(0, 3, 1, 2).contiguous()  # [B, NumPatches, C, patch_len]
+        x = x.view(B, -1, C * self.patch_len)   # [B, NumPatches, C * patch_len]
 
-        # Prepare for linear projection: merge C and patch_len
-        x = x.permute(0, 3, 1, 2)  # [B, patch_num, C, patch_len]
-        x = x.reshape(B, patch_num, -1)  # [B, patch_num, C * patch_len]
+        # Step 3: Linear projection per patch
+        x = self.W_P(x)  # [B, NumPatches, d_model]
 
-        # Project: [B, patch_num, d_model]
-        x = self.W_P(x)
+        # Step 4: Pass through Transformer encoder
+        x = self.backbone(x)  # [B, NumPatches, d_model]
 
-        # Add positional encoding
-        if self.use_pos:
-            x = x + self.P[:, :patch_num].clone().detach()
+        # Step 5: Prediction head
+        x = self.head(x)  # Output shape depends on head_type (e.g., [B, C, pred_len])
 
-        x = self.dropout(x)
-
-        # Encoder
-        for layer in self.encoder:
-            x = layer(x)
-
-        x = self.norm(x)
+        # Step 6: Apply RevIN denorm if needed
+        if self.revin:
+            x = self.revin_layer(x, 'denorm')
 
         return x
     
