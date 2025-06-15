@@ -66,6 +66,12 @@ class PatchTST_backbone(nn.Module):
         if padding_patch == 'end':
             self.padding_patch_layer = nn.ReplicationPad1d((0, stride))
             patch_num += 1
+        
+        # Positional Encoding (for TSTiEncoder, if pe='zeros' and learnable)
+        if pe == 'zeros' and learn_pe:
+            self.pos_embed = nn.Parameter(torch.zeros(1, patch_num, d_model))
+        else:
+            self.pos_embed = None
 
         # ADDED LINEAR PROJECTION for dynamic patching 
         self.W_P = nn.Linear(c_in * patch_len, d_model)
