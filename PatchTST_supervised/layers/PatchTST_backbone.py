@@ -104,24 +104,33 @@ class PatchTST_backbone(nn.Module):
         if self.padding_patch == 'end':
             x = self.padding_patch_layer(x)
 
-        # Step 1: Patchify input
-        # Shape after unfold: [B, C, patch_len, NumPatches]
-        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+        # Clamp patch_len if input is too short
+        effective_patch_len = min(self.patch_len, T)
+        if effective_patch_len > T:
+            raise ValueError(f"Effective patch_len {effective_patch_len} is greater than input length {T}")
 
-        # Step 2: Rearrange to [B, NumPatches, C * patch_len]
-        x = x.permute(0, 3, 1, 2).contiguous()  # [B, NumPatches, C, patch_len]
-        x = x.view(B, -1, C * self.patch_len)   # [B, NumPatches, C * patch_len]
+        # Step 1: Patchify input safely
+        if T < effective_patch_len:
+            raise ValueError(f"Input length {T} is smaller than patch_len {effective_patch_len}")
+        x = x.unfold(dimension=-1, size=effective_patch_len, step=self.stride)  # [B, C, patch_len, N_patches]
 
-        # Step 3: Linear projection per patch
-        x = self.W_P(x)  # [B, NumPatches, d_model]
+        # Step 2: Reshape to [B, NumPatches, C * patch_len]
+        x = x.permute(0, 3, 1, 2).contiguous()  # [B, N_patches, C, patch_len]
+        x = x.view(B, -1, C * effective_patch_len)  # [B, N_patches, C * patch_len]
 
-        # Step 4: Pass through Transformer encoder
-        x = self.backbone(x)  # [B, NumPatches, d_model]
+        # Step 3: Handle W_P projection
+        if not hasattr(self, 'W_P') or self.W_P.in_features != C * effective_patch_len:
+            self.W_P = nn.Linear(C * effective_patch_len, self.d_model).to(x.device)
 
-        # Step 5: Prediction head
-        x = self.head(x)  # Output shape depends on head_type (e.g., [B, C, pred_len])
+        x = self.W_P(x)  # [B, N_patches, d_model]
 
-        # Step 6: Apply RevIN denorm if needed
+        # Step 4: Transformer
+        x = self.backbone(x)
+
+        # Step 5: Head
+        x = self.head(x)
+
+        # Step 6: Denormalize
         if self.revin:
             x = self.revin_layer(x, 'denorm')
 
