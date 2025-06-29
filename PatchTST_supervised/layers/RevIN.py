@@ -43,10 +43,11 @@ class RevIN(nn.Module):
     def _get_statistics(self, x):
         dim2reduce = tuple(range(1, x.ndim-1))
         if self.subtract_last:
-            self.last = x[:,-1,:].unsqueeze(1)
+            self.last = x[:, -1:, :].clone().detach()
         else:
-            self.mean = torch.mean(x, dim=dim2reduce, keepdim=True).detach()
-        self.stdev = torch.sqrt(torch.var(x, dim=dim2reduce, keepdim=True, unbiased=False) + self.eps).detach()
+            self.mean = x.mean(dim=dim2reduce, keepdim=True).detach()
+        self.stdev = x.std(dim=dim2reduce, keepdim=True).detach() + self.eps
+
 
     def _normalize(self, x):
         if self.subtract_last:
@@ -60,10 +61,10 @@ class RevIN(nn.Module):
         return x
 
     def _denormalize(self, x, mean, stdev, last=None):
-        if self.affine:
-            x = x - self.affine_bias
-            x = x / (self.affine_weight + self.eps*self.eps)
         x = x * stdev
-        x = x + last if self.subtract_last else x + mean
+        if self.subtract_last:
+            x = x + last[..., :x.shape[-1]]
+        else:
+            x = x + mean[..., :x.shape[-1]]
         return x
 
