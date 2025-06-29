@@ -149,6 +149,8 @@ class PatchTST_backbone(nn.Module):
         # Transformer encoder
         x = self.backbone(x)  # [B, N, d_model]
 
+        self.head = Flatten_Head(self.individual, self.n_vars, x.shape[1] * x.shape[2], self.target_window, head_dropout=self.head_dropout).to(x.device)
+
         # Prediction head
         x = self.head(x)  # [B, C, pred_len]
 
