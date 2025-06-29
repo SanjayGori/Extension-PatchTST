@@ -164,7 +164,7 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         
         n_vars = x.shape[1]
         # get this batch's patch length
-        _, _, num_patches, patch_len = x.shape
+        _, _, patch_len, num_patches = x.shape
 
         key = str(patch_len)
         if key not in self.W_P_dict:
