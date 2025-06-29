@@ -86,37 +86,33 @@ class PatchTST_backbone(nn.Module):
 
         # inject time-gap if provided
         if x_mark is not None:
-            # 1) pull out normalized dt per time step
-            dt = x_mark[..., -1]  # → [bs x seq_len]
+            # 1) pull out normalized dt per time-step
+            dt = x_mark[..., -1]                    # [B, seq_len]
 
-            # 2) select the patch‐start indices
-            idxs = torch.arange(
-                0,
-                self.context_window - patch_len + 1,
-                self.stride,
-                device=dt.device
-            )                    # → [patch_num]
-            dt_patch = dt[:, idxs]          # → [bs x patch_num]
+            # 2) get how many patches we actually have
+            patch_num = z.size(-1)                  # correct dynamic patch count
 
-            # 3) embed those gaps
-            dt_e = self.tg_emb(dt_patch)    # → [bs x patch_num x d_model]
-            dt_e = dt_e.permute(0, 2, 1).unsqueeze(1)
-            # → [bs x 1 x d_model x patch_num]
+            # 3) build start indices by stride
+            idxs = torch.arange(patch_num, device=dt.device) * self.stride
+            dt_patch = dt[:, idxs]                  # [B, patch_num]
 
-            # 4) project each patch to d_model (reuse TSTiEncoder’s W_P)
+            # 4) embed the gaps
+            dt_e = self.tg_emb(dt_patch)            # [B, patch_num, d_model]
+            dt_e = dt_e.permute(0,2,1).unsqueeze(1)  # [B, 1, d_model, patch_num]
+
+            # 5) project each patch into d_model (reuse or register a W_P)
             key = str(patch_len)
             if key not in self.backbone.W_P_dict:
-                # build & register a nn.Linear(patch_len→d_model)
                 self.backbone.W_P_dict[key] = nn.Linear(
-                    patch_len,
-                    self.backbone._d_model
+                    patch_len, self.backbone._d_model
                 ).to(dt.device)
             W_P_lin = self.backbone.W_P_dict[key]
-            
-            z_for_proj = z.permute(0, 1, 3, 2)               # → [bs x nvars x patch_num x patch_len]
-            proj = W_P_lin(z_for_proj)                       # → [bs x nvars x patch_num x d_model]
-            z_proj = proj.permute(0, 1, 3, 2)                # → [bs x nvars x d_model x patch_num]
-            # add
+
+            z_for_proj = z.permute(0,1,3,2)          # [B, nvars, patch_num, patch_len]
+            proj = W_P_lin(z_for_proj)               # [B, nvars, patch_num, d_model]
+            z_proj = proj.permute(0,1,3,2)           # [B, nvars, d_model, patch_num]
+
+            # 6) add the two
             z = z_proj + dt_e
         
         # model
