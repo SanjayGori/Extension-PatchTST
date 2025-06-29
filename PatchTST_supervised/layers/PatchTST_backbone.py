@@ -157,8 +157,8 @@ class PatchTST_backbone(nn.Module):
         x = self.head(x)  # [B, C, pred_len]
 
         if self.revin:
-            #x = self.revin_layer(x, 'denorm')
-            x = self.revin_layer(x, 'denorm', x.shape[-1])
+            x = self.revin_layer(x, 'denorm')
+            #x = self.revin_layer(x, 'denorm', x.shape[-1])
 
         return x
     
