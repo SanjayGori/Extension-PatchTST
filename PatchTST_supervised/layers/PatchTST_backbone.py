@@ -266,7 +266,7 @@ class TSTiEncoder(nn.Module):  # i means channel-independent
         #x = self.W_P(x)  # [B, N, d_model]
 
         # Add positional encoding
-        x = self.dropout(x + self.W_pos)
+        x = self.dropout(x + self.W_pos.to(x.device))
 
         # Pass through Transformer encoder
         z = self.encoder(x)  # [B, N, d_model]
