@@ -54,8 +54,11 @@ class PatchTST_backbone(nn.Module):
         if self.pretrain_head: 
             self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout) # custom head passed as a partial func with all its kwargs
         elif head_type == 'flatten': 
-            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
-        
+            #self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
+            self.head_dict = nn.ModuleDict()
+            self.d_model    = d_model
+            self.target_window   = target_window
+            self.head_dropout  = head_dropout
     
     def forward(self, z, patch_len):                                                                   # z: [bs x nvars x seq_len]
         # norm
@@ -73,7 +76,24 @@ class PatchTST_backbone(nn.Module):
         
         # model
         z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]
-        z = self.head(z)                                                                    # z: [bs x nvars x target_window] 
+        # z = self.head(z)   
+        
+        # dynamic flatten-head
+        if self.pretrain_head:
+            z = self.head(z)
+        elif self.head_type == 'flatten':
+            num_patches = z.shape[-1]
+            key = str(num_patches)
+            if key not in self.head_dict:
+                nf = self.d_model * num_patches
+                self.head_dict[key] = Flatten_Head(
+                    self.individual, self.n_vars, nf, self.target_window,
+                    head_dropout=self.head_dropout
+                ).to(z.device)
+            head = self.head_dict[key]
+            z = head(z)
+        else:
+            z = self.head(z)                                                                 # z: [bs x nvars x target_window] 
         
         # denorm
         if self.revin: 
@@ -150,7 +170,11 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         self.seq_len = q_len
 
         # Positional encoding
-        self.W_pos = positional_encoding(pe, learn_pe, q_len, d_model)
+        #self.W_pos = positional_encoding(pe, learn_pe, q_len, d_model)
+        self.pe_type    = pe
+        self.learn_pe   = learn_pe
+        self._d_model   = d_model
+        self.W_pos_dict = nn.ParameterDict()
 
         # Residual dropout
         self.dropout = nn.Dropout(dropout)
@@ -166,6 +190,14 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         # get this batch's patch length
         _, _, patch_len, num_patches = x.shape
 
+        key = str(num_patches)
+        if key not in self.W_pos_dict:
+            pe = positional_encoding(self.pe_type, self.learn_pe, num_patches, self._d_model)
+            pe = nn.Parameter(pe.to(x.device), requires_grad=self.learn_pe)
+            self.W_pos_dict[key] = pe
+        W_pos = self.W_pos_dict[key]       # [num_patches × d_model]
+
+
         key = str(patch_len)
         if key not in self.W_P_dict:
             # create a new Linear(patch_len → d_model) and register it
@@ -179,7 +211,7 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         x = W_P(x)
 
         u = torch.reshape(x, (x.shape[0]*x.shape[1],x.shape[2],x.shape[3]))      # u: [bs * nvars x patch_num x d_model]
-        u = self.dropout(u + self.W_pos)                                         # u: [bs * nvars x patch_num x d_model]
+        u = self.dropout(u + W_pos)                                         # u: [bs * nvars x patch_num x d_model]
 
         # Encoder
         z = self.encoder(u)                                                      # z: [bs * nvars x patch_num x d_model]
