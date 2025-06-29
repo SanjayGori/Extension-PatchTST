@@ -159,8 +159,8 @@ class PatchTST_backbone(nn.Module):
         if self.revin:
             #x = self.revin_layer(x, 'denorm')
             #x = self.revin_layer(x, 'denorm', x.shape[-1])
-            x = self.revin_layer(x, 'denorm', T)  # T is the original input length
-
+            assert x.shape[-1] == self.target_window, f"Mismatch: x has {x.shape[-1]} timesteps, but target_window is {self.target_window}"
+            x = self.revin_layer(x, 'denorm', x.shape[-1])
         return x
     
     def create_pretrain_head(self, head_nf, vars, dropout):
