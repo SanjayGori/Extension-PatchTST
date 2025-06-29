@@ -252,7 +252,7 @@ class TSTiEncoder(nn.Module):  # i means channel-independent
         B, N, D = x.shape  # [batch, num_patches, flattened_dim]
 
         # Project each patch to d_model
-        x = self.W_P(x)  # [B, N, d_model]
+        #x = self.W_P(x)  # [B, N, d_model]
 
         # Add positional encoding
         x = self.dropout(x + self.W_pos)
