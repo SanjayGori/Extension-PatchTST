@@ -61,10 +61,19 @@ class RevIN(nn.Module):
         return x
 
     def _denormalize(self, x, mean, stdev, last=None):
+        # x: [B, C, pred_len]
+        # mean/stdev: [B, C, history_len]
+        pred_len = x.shape[-1]
+        mean = mean[..., -pred_len:]
+        stdev = stdev[..., -pred_len:]
+        if last is not None:
+            last = last[..., -pred_len:]
+            
         x = x * stdev
         if self.subtract_last:
-            x = x + last[..., :x.shape[-1]]
+            x = x + last
         else:
-            x = x + mean[..., :x.shape[-1]]
+            x = x + mean
         return x
+
 
