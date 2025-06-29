@@ -135,7 +135,7 @@ class PatchTST_backbone(nn.Module):
         # Re-init pos_embed if patch count changes
         patch_num = x.shape[1]
         if self.pe == 'zeros' and self.learn_pe:
-            self.pos_embed = nn.Parameter(torch.zeros(1, patch_num, self.d_model)).to(x.device)
+            self.pos_embed = nn.Parameter(torch.zeros(1, patch_num, self.d_model, device=x.device))
 
         # Inform backbone of new patch count
         self.backbone.set_patch_num(patch_num)
