@@ -221,29 +221,49 @@ class TSTiEncoder(nn.Module):  # i means channel-independent
         self.patch_num = patch_num
         self.W_pos = positional_encoding(self.W_pos.pe_type, self.W_pos.learn_pe, patch_num, self.W_pos.d_model)
 
-    def forward(self, x) -> Tensor:
-        # x: [bs, nvars, patch_len, patch_num]
-        bs, nvars, patch_len, patch_num = x.shape
-        x = x.permute(0, 1, 3, 2)  # -> [bs, nvars, patch_num, patch_len]
+    # def forward(self, x) -> Tensor:
+    #     # x: [bs, nvars, patch_len, patch_num]
+    #     B, N, D = x.shape  # [batch, num_patches, flattened_dim]
+    #     x = x.permute(0, 1, 3, 2)  # -> [bs, nvars, patch_num, patch_len]
 
-        # Patch projection
-        x = self.W_P(x)  # -> [bs, nvars, patch_num, d_model]
+    #     # Patch projection
+    #     x = self.W_P(x)  # -> [bs, nvars, patch_num, d_model]
 
-        # Combine batch and variables
-        u = x.reshape(bs * nvars, patch_num, -1)  # [bs * nvars, patch_num, d_model]
+    #     # Combine batch and variables
+    #     u = x.reshape(bs * nvars, patch_num, -1)  # [bs * nvars, patch_num, d_model]
+
+    #     # Add positional encoding
+    #     u = self.dropout(u + self.W_pos)
+
+    #     # Encode
+    #     z = self.encoder(u)  # -> [bs * nvars, patch_num, d_model]
+
+    #     # Reshape back
+    #     z = z.view(bs, nvars, patch_num, -1)  # -> [bs, nvars, patch_num, d_model]
+    #     z = z.permute(0, 1, 3, 2)  # -> [bs, nvars, d_model, patch_num]
+
+    #     return z
+    
+    def forward(self, x) -> Tensor: 
+        # x: [B, N_patches, C * patch_len]
+        B, N, D = x.shape  # [batch, num_patches, flattened_dim]
+
+        # Project each patch to d_model
+        x = self.W_P(x)  # [B, N, d_model]
 
         # Add positional encoding
-        u = self.dropout(u + self.W_pos)
+        x = self.dropout(x + self.W_pos)
 
-        # Encode
-        z = self.encoder(u)  # -> [bs * nvars, patch_num, d_model]
+        # Pass through Transformer encoder
+        z = self.encoder(x)  # [B, N, d_model]
 
-        # Reshape back
-        z = z.view(bs, nvars, patch_num, -1)  # -> [bs, nvars, patch_num, d_model]
-        z = z.permute(0, 1, 3, 2)  # -> [bs, nvars, d_model, patch_num]
+        # Add dummy nvars dimension to match Flatten_Head expectations
+        z = z.unsqueeze(1)  # [B, 1, N, d_model]
+        z = z.permute(0, 1, 3, 2)  # [B, 1, d_model, N]
 
         return z
-            
+
+
     
 # Cell
 class TSTEncoder(nn.Module):
