@@ -1,10 +1,12 @@
 __all__ = ['Transpose', 'get_activation_fn', 'moving_avg', 'series_decomp', 'PositionalEncoding', 'SinCosPosEncoding', 'Coord2dPosEncoding', 'Coord1dPosEncoding', 'positional_encoding', 'TimeGapEmbedding']
 
 import torch
-from torch import nn
 import math
 import torch.nn as nn
-from .PatchTST_layers import PositionalEncoding
+
+def pv(msg, verbose):
+    if verbose:
+        print(msg)
 
 
 class Transpose(nn.Module):
