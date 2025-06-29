@@ -141,7 +141,12 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         
         # Input encoding
         q_len = patch_num
-        self.W_P = nn.Linear(patch_len, d_model)        # Eq 1: projection of feature vectors onto a d-dim vector space
+        #self.W_P = nn.Linear(patch_len, d_model)        # Eq 1: projection of feature vectors onto a d-dim vector space
+        
+        # for dynamic patch_len → d_model mappings
+        self.W_P_dict = nn.ModuleDict()
+        self._d_model = d_model
+
         self.seq_len = q_len
 
         # Positional encoding
@@ -158,9 +163,20 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
     def forward(self, x) -> Tensor:                                              # x: [bs x nvars x patch_len x patch_num]
         
         n_vars = x.shape[1]
+        # get this batch's patch length
+        _, _, num_patches, patch_len = x.shape
+
+        key = str(patch_len)
+        if key not in self.W_P_dict:
+            # create a new Linear(patch_len → d_model) and register it
+            self.W_P_dict[key] = nn.Linear(patch_len, self._d_model).to(x.device)
+
+        W_P = self.W_P_dict[key]
+
         # Input encoding
         x = x.permute(0,1,3,2)                                                   # x: [bs x nvars x patch_num x patch_len]
-        x = self.W_P(x)                                                          # x: [bs x nvars x patch_num x d_model]
+        #x = self.W_P(x)                                                          # x: [bs x nvars x patch_num x d_model]
+        x = W_P(x)
 
         u = torch.reshape(x, (x.shape[0]*x.shape[1],x.shape[2],x.shape[3]))      # u: [bs * nvars x patch_num x d_model]
         u = self.dropout(u + self.W_pos)                                         # u: [bs * nvars x patch_num x d_model]
