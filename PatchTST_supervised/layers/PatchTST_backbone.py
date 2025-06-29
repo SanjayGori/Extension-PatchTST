@@ -128,6 +128,8 @@ class PatchTST_backbone(nn.Module):
         if not hasattr(self, 'W_P') or self.W_P.in_features != in_features:
             self.W_P = nn.Linear(in_features, self.d_model).to(x.device)
 
+        print(f"x.shape before W_P: {x.shape}, W_P expects: {self.W_P.in_features}")
+
         x = self.W_P(x)  # [B, N_patches, d_model]
 
         # Positional embedding
