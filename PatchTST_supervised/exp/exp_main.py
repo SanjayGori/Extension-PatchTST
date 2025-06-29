@@ -35,6 +35,8 @@ class Exp_Main(Exp_Basic):
         }
         model = model_dict[self.args.model].Model(self.args).float()
 
+        print(model)
+
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
@@ -69,7 +71,7 @@ class Exp_Main(Exp_Basic):
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if 'Linear' in self.args.model or 'TST' in self.args.model:
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                         else:
                             if self.args.output_attention:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -77,7 +79,7 @@ class Exp_Main(Exp_Basic):
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model:
-                        outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                        outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -147,7 +149,7 @@ class Exp_Main(Exp_Basic):
                     with torch.cuda.amp.autocast():
                         if 'Linear' in self.args.model or 'TST' in self.args.model:
                             #outputs = self.model(batch_x)
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                         else:
                             if self.args.output_attention:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -161,7 +163,7 @@ class Exp_Main(Exp_Basic):
                         train_loss.append(loss.item())
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model:
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -247,7 +249,7 @@ class Exp_Main(Exp_Basic):
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if 'Linear' in self.args.model or 'TST' in self.args.model:
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                         else:
                             if self.args.output_attention:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -255,7 +257,7 @@ class Exp_Main(Exp_Basic):
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model:
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -338,7 +340,7 @@ class Exp_Main(Exp_Basic):
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if 'Linear' in self.args.model or 'TST' in self.args.model:
-                            outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                            outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                         else:
                             if self.args.output_attention:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
@@ -346,7 +348,7 @@ class Exp_Main(Exp_Basic):
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
                     if 'Linear' in self.args.model or 'TST' in self.args.model:
-                        outputs = self.model(batch_x, patch_len=patch_len[0].item())
+                        outputs = self.model(batch_x, patch_len=patch_len[0].item(),seq_x_mark=batch_x_mark)
                     else:
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]

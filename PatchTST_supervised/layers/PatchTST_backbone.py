@@ -7,6 +7,7 @@ from torch import nn
 from torch import Tensor
 import torch.nn.functional as F
 import numpy as np
+from .PatchTST_layers import TimeGapEmbedding
 
 #from collections import OrderedDict
 from layers.PatchTST_layers import *
@@ -43,6 +44,15 @@ class PatchTST_backbone(nn.Module):
                                 attn_dropout=attn_dropout, dropout=dropout, act=act, key_padding_mask=key_padding_mask, padding_var=padding_var,
                                 attn_mask=attn_mask, res_attention=res_attention, pre_norm=pre_norm, store_attn=store_attn,
                                 pe=pe, learn_pe=learn_pe, verbose=verbose, **kwargs)
+        
+        self.context_window = context_window
+
+        # time-gap embedding for irregular intervals
+        self.tg_emb = TimeGapEmbedding(
+            q_len=context_window,  # full sequence length
+            d_model=d_model,       # same model dimension
+            learnable=False
+        )
 
         # Head
         self.head_nf = d_model * patch_num
@@ -60,7 +70,7 @@ class PatchTST_backbone(nn.Module):
             self.target_window   = target_window
             self.head_dropout  = head_dropout
     
-    def forward(self, z, patch_len):                                                                   # z: [bs x nvars x seq_len]
+    def forward(self, z, patch_len, x_mark=None):                                                                   # z: [bs x nvars x seq_len]
         # norm
         if self.revin: 
             z = z.permute(0,2,1)
@@ -72,7 +82,34 @@ class PatchTST_backbone(nn.Module):
             z = self.padding_patch_layer(z)
         #z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)                   # z: [bs x nvars x patch_num x patch_len]
         z = z.unfold(dimension=-1, size=patch_len, step=self.stride)
-        z = z.permute(0,1,3,2)                                                              # z: [bs x nvars x patch_len x patch_num]
+        z = z.permute(0,1,3,2)                                                          # z: [bs x nvars x patch_len x patch_num]
+
+        # inject time-gap if provided
+        if x_mark is not None:
+            # 1) pull out normalized dt per time step
+            dt = x_mark[..., -1]  # → [bs x seq_len]
+
+            # 2) select the patch‐start indices
+            idxs = torch.arange(
+                0,
+                self.context_window - patch_len + 1,
+                self.stride,
+                device=dt.device
+            )                    # → [patch_num]
+            dt_patch = dt[:, idxs]          # → [bs x patch_num]
+
+            # 3) embed those gaps
+            dt_e = self.tg_emb(dt_patch)    # → [bs x patch_num x d_model]
+            dt_e = dt_e.permute(0, 2, 1).unsqueeze(1)
+            # → [bs x 1 x d_model x patch_num]
+
+            # 4) project each patch to d_model (reuse TSTiEncoder’s W_P)
+            W_P_lin = self.backbone.W_P_dict[str(patch_len)]
+            z_for_proj = z.permute(0, 1, 3, 2)               # → [bs x nvars x patch_num x patch_len]
+            proj = W_P_lin(z_for_proj)                       # → [bs x nvars x patch_num x d_model]
+            z_proj = proj.permute(0, 1, 3, 2)                # → [bs x nvars x d_model x patch_num]
+            # add
+            z = z_proj + dt_e
         
         # model
         z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]

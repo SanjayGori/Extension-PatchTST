@@ -77,16 +77,16 @@ class Model(nn.Module):
                                   subtract_last=subtract_last, verbose=verbose, **kwargs)
     
     
-    def forward(self, x, patch_len):           # x: [Batch, Input length, Channel]
+    def forward(self, x, patch_len, seq_x_mark=None):           # x: [Batch, Input length, Channel]
         if self.decomposition:
             res_init, trend_init = self.decomp_module(x)
             res_init, trend_init = res_init.permute(0,2,1), trend_init.permute(0,2,1)  # x: [Batch, Channel, Input length]
-            res = self.model_res(res_init)
-            trend = self.model_trend(trend_init)
+            res   = self.model_res(res_init,   patch_len=patch_len, x_mark=seq_x_mark)
+            trend = self.model_trend(trend_init, patch_len=patch_len, x_mark=seq_x_mark)
             x = res + trend
             x = x.permute(0,2,1)    # x: [Batch, Input length, Channel]
         else:
             x = x.permute(0,2,1)    # x: [Batch, Channel, Input length]
-            x = self.model(x, patch_len=patch_len)  # x: [Batch, Input length, Channel]
+            x = self.model(x, patch_len=patch_len, x_mark=seq_x_mark)  # x: [Batch, Input length, Channel]
             x = x.permute(0,2,1)    # x: [Batch, Input length, Channel]
         return x
