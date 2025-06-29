@@ -27,9 +27,9 @@ class RevIN(nn.Module):
                 self.saved_last = self.last
             x = self._normalize(x)
         elif mode == 'denorm':
-            mean = self.saved_mean if not self.subtract_last else None
-            stdev = self.saved_stdev
-            last = self.saved_last if self.subtract_last else None
+            mean = self.saved_mean[..., :length] if not self.subtract_last else None
+            stdev = self.saved_stdev[..., :length]
+            last = self.saved_last[..., :length] if self.subtract_last else None
             x = self._denormalize(x, mean, stdev, last)
         else:
             raise NotImplementedError
