@@ -182,7 +182,8 @@ class Flatten_Head(nn.Module):
                 self.dropouts.append(nn.Dropout(head_dropout))
         else:
             self.flatten = nn.Flatten(start_dim=-2)
-            self.linear = nn.Linear(self.d_model, target_window)
+            #self.linear = nn.Linear(self.d_model, target_window)
+            self.linear = nn.Linear(nf, target_window)
             self.dropout = nn.Dropout(head_dropout)
             
     def forward(self, x):                                 # x: [bs x nvars x d_model x patch_num]
