@@ -87,14 +87,14 @@ class PatchTST_backbone(nn.Module):
         # inject time-gap if provided
         if x_mark is not None:
             # 1) pull out normalized dt per time-step
-            dt = x_mark[..., -1]                    # [B, seq_len]
+            dt = x_mark[..., -1]  # [B, seq_len]
+            # pad dt exactly as you padded z
+            if self.padding_patch == 'end':
+                dt = torch.cat([dt, dt[:, -1:].repeat(1, self.stride)], dim=1)
 
-            # 2) get how many patches we actually have
-            patch_num = z.size(-1)                  # correct dynamic patch count
-
-            # 3) build start indices by stride
+            patch_num = z.size(-1)
             idxs = torch.arange(patch_num, device=dt.device) * self.stride
-            dt_patch = dt[:, idxs]                  # [B, patch_num]
+            dt_patch = dt[:, idxs]  # [B, patch_num]
 
             # 4) embed the gaps
             dt_e = self.tg_emb(dt_patch)            # [B, patch_num, d_model]
