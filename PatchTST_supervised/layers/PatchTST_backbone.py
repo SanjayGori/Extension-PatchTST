@@ -104,7 +104,15 @@ class PatchTST_backbone(nn.Module):
             # → [bs x 1 x d_model x patch_num]
 
             # 4) project each patch to d_model (reuse TSTiEncoder’s W_P)
-            W_P_lin = self.backbone.W_P_dict[str(patch_len)]
+            key = str(patch_len)
+            if key not in self.backbone.W_P_dict:
+                # build & register a nn.Linear(patch_len→d_model)
+                self.backbone.W_P_dict[key] = nn.Linear(
+                    patch_len,
+                    self.backbone._d_model
+                ).to(dt.device)
+            W_P_lin = self.backbone.W_P_dict[key]
+            
             z_for_proj = z.permute(0, 1, 3, 2)               # → [bs x nvars x patch_num x patch_len]
             proj = W_P_lin(z_for_proj)                       # → [bs x nvars x patch_num x d_model]
             z_proj = proj.permute(0, 1, 3, 2)                # → [bs x nvars x d_model x patch_num]
