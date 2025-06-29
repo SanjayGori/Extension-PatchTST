@@ -86,7 +86,7 @@ class PatchTST_backbone(nn.Module):
         )
 
         # Head
-        self.head_nf = d_model * patch_num
+        self.head_nf = d_model * ((context_window - patch_len) // stride + 1 + (1 if padding_patch == 'end' else 0))
         self.n_vars = c_in
         self.pretrain_head = pretrain_head
         self.head_type = head_type
