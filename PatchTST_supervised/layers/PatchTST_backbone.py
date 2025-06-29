@@ -194,7 +194,7 @@ class Flatten_Head(nn.Module):
             x = torch.stack(x_out, dim=1)                 # x: [bs x nvars x target_window]
         else:
             x = self.flatten(x)
-            x = self.linear(x)
+            x = self.linear(x.view(x.size(0), -1))
             x = self.dropout(x)
         return x
 
