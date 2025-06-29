@@ -21,16 +21,20 @@ class RevIN(nn.Module):
     def forward(self, x, mode: str, length: int = None):
         if mode == 'norm':
             self._get_statistics(x)
+            self.saved_mean = self.mean
+            self.saved_stdev = self.stdev
+            if self.subtract_last:
+                self.saved_last = self.last
             x = self._normalize(x)
         elif mode == 'denorm':
-            if length is not None:
-                if not self.subtract_last:
-                    self.mean = self.mean[..., :length]
-                self.stdev = self.stdev[..., :length]
-            x = self._denormalize(x)
+            mean = self.saved_mean[..., :length] if not self.subtract_last else None
+            stdev = self.saved_stdev[..., :length]
+            last = self.saved_last[..., :length] if self.subtract_last else None
+            x = self._denormalize(x, mean, stdev, last)
         else:
             raise NotImplementedError
         return x
+
 
 
     def _init_params(self):
@@ -57,13 +61,11 @@ class RevIN(nn.Module):
             x = x + self.affine_bias
         return x
 
-    def _denormalize(self, x):
+    def _denormalize(self, x, mean, stdev, last=None):
         if self.affine:
             x = x - self.affine_bias
             x = x / (self.affine_weight + self.eps*self.eps)
-        x = x * self.stdev
-        if self.subtract_last:
-            x = x + self.last
-        else:
-            x = x + self.mean
+        x = x * stdev
+        x = x + last if self.subtract_last else x + mean
         return x
+
