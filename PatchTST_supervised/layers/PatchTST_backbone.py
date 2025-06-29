@@ -201,7 +201,8 @@ class TSTiEncoder(nn.Module):  # i means channel-independent
         self.patch_len = patch_len
         
         # Input encoding
-        self.W_P = nn.Linear(patch_len, d_model)        # Project each patch to d_model
+        #self.W_P = nn.Linear(patch_len, d_model)        # Project each patch to d_model
+        self.W_P = nn.Linear(c_in * patch_len, d_model)
         self.seq_len = patch_num
 
         # Positional encoding
