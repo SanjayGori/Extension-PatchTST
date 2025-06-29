@@ -198,7 +198,8 @@ class Flatten_Head(nn.Module):
         else:
             x = self.flatten(x)
             #x = self.linear(x.view(x.size(0), -1))
-            x = self.linear(x)
+            #x = self.linear(x)
+            x = self.linear(x.view(x.size(0), -1))
             x = self.dropout(x)
         return x
 
