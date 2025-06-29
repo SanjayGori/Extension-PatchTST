@@ -230,7 +230,8 @@ class TSTiEncoder(nn.Module):  # i means channel-independent
     def set_patch_num(self, patch_num):  # for dynamic patching
         self.seq_len = patch_num
         self.patch_num = patch_num
-        self.W_pos = positional_encoding(self.W_pos.pe_type, self.W_pos.learn_pe, patch_num, self.W_pos.d_model)
+        self.W_pos = positional_encoding(self.pe, self.learn_pe, patch_num, self.d_model)
+
 
     # def forward(self, x) -> Tensor:
     #     # x: [bs, nvars, patch_len, patch_num]
