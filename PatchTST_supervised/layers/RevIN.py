@@ -18,14 +18,20 @@ class RevIN(nn.Module):
         if self.affine:
             self._init_params()
 
-    def forward(self, x, mode:str):
+    def forward(self, x, mode: str, length: int = None):
         if mode == 'norm':
             self._get_statistics(x)
             x = self._normalize(x)
         elif mode == 'denorm':
+            if length is not None:
+                if not self.subtract_last:
+                    self.mean = self.mean[..., :length]
+                self.stdev = self.stdev[..., :length]
             x = self._denormalize(x)
-        else: raise NotImplementedError
+        else:
+            raise NotImplementedError
         return x
+
 
     def _init_params(self):
         # initialize RevIN params: (C,)
