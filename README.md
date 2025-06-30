@@ -223,5 +223,7 @@ df.to_csv(f'dataset/AAPL.csv', index=False)
   --patch_len 13 --stride 8 \
   --des dyn13_test \
   --train_epochs 3 \
-  --batch_size 16 ```
+  --batch_size 16
+```
 ---
+# THE END
