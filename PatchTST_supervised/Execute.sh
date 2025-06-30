@@ -1,40 +1,59 @@
 #!/usr/bin/env bash
 
 OUTPUT_CSV="results_summary.csv"
-echo "filename,MSE,MAE,RSE" > "$OUTPUT_CSV"
+echo "Ticker,MSE,MAE,RSE" > "$OUTPUT_CSV"
+
+seq_len=336
+pred_len=96
+model_name=PatchTST
+data_name=custom
+random_seed=2021
 
 for file in ./dataset/*_preprocessed.csv; do
-  full_filename=$(basename "$file")              # AAPL_preprocessed.csv
-  ticker="${full_filename%%_preprocessed.csv}"   # Extract "AAPL"
+  full_filename=$(basename "$file")
+  ticker="${full_filename%%_preprocessed.csv}"
+  model_id="${ticker}_${seq_len}_${pred_len}"
 
   echo "Running on $ticker"
 
-  # Run model and capture output
-  OUTPUT=$(python run_longExp.py \
+  OUTPUT=$(python -u run_longExp.py \
+    --random_seed $random_seed \
     --is_training 1 \
     --do_predict \
     --root_path ./dataset/ \
     --data_path "$full_filename" \
-    --model_id "$ticker" \
-    --model PatchTST \
-    --data custom \
+    --model_id "$model_id" \
+    --model $model_name \
+    --data $data_name \
     --features S \
     --target Close \
-    --seq_len 96 \
+    --seq_len $seq_len \
     --label_len 48 \
-    --pred_len 24 \
-    --patch_len 13 \
+    --pred_len $pred_len \
+    --enc_in 21 \
+    --e_layers 3 \
+    --n_heads 16 \
+    --d_model 128 \
+    --d_ff 256 \
+    --dropout 0.2 \
+    --fc_dropout 0.2 \
+    --head_dropout 0 \
+    --patch_len 16 \
     --stride 8 \
-    --des batch_run \
-    --train_epochs 3 \
-    --batch_size 16 2>&1)
+    --des 'Exp' \
+    --train_epochs 100 \
+    --patience 20 \
+    --itr 1 \
+    --batch_size 128 \
+    --use_amp \
+    --use_gpu True \
+    --learning_rate 0.0001 2>&1)
 
-  # Extract metrics
-  MSE=$(echo "$OUTPUT" | grep -oP "MSE:\s*\K[0-9.]+" | head -1)
-  MAE=$(echo "$OUTPUT" | grep -oP "MAE:\s*\K[0-9.]+" | head -1)
-  RSE=$(echo "$OUTPUT" | grep -oP "RSE:\s*\K[0-9.]+" | head -1)
 
-  # Save to summary CSV
+  MSE=$(echo "$OUTPUT" | grep -i -oP "mse:\s*\K[0-9.]+" | tail -1)
+  MAE=$(echo "$OUTPUT" | grep -i -oP "mae:\s*\K[0-9.]+" | tail -1)
+  RSE=$(echo "$OUTPUT" | grep -i -oP "rse:\s*\K[0-9.]+" | tail -1)
+
   echo "$ticker,$MSE,$MAE,$RSE" >> "$OUTPUT_CSV"
 done
 
