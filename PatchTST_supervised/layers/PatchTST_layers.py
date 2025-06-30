@@ -1,8 +1,13 @@
-__all__ = ['Transpose', 'get_activation_fn', 'moving_avg', 'series_decomp', 'PositionalEncoding', 'SinCosPosEncoding', 'Coord2dPosEncoding', 'Coord1dPosEncoding', 'positional_encoding']           
+__all__ = ['Transpose', 'get_activation_fn', 'moving_avg', 'series_decomp', 'PositionalEncoding', 'SinCosPosEncoding', 'Coord2dPosEncoding', 'Coord1dPosEncoding', 'positional_encoding', 'TimeGapEmbedding']
 
 import torch
-from torch import nn
 import math
+import torch.nn as nn
+
+def pv(msg, verbose):
+    if verbose:
+        print(msg)
+
 
 class Transpose(nn.Module):
     def __init__(self, *dims, contiguous=False): 
@@ -119,3 +124,17 @@ def positional_encoding(pe, learn_pe, q_len, d_model):
     else: raise ValueError(f"{pe} is not a valid pe (positional encoder. Available types: 'gauss'=='normal', \
         'zeros', 'zero', uniform', 'lin1d', 'exp1d', 'lin2d', 'exp2d', 'sincos', None.)")
     return nn.Parameter(W_pos, requires_grad=learn_pe)
+
+class TimeGapEmbedding(nn.Module):
+    """Embed normalized time gaps into d_model dimensions."""
+    def __init__(self, q_len, d_model, learnable=False):
+        super().__init__()
+        # get [q_len×d_model] sinusoidal table
+        W = PositionalEncoding(q_len, d_model, normalize=True)
+        self.W = nn.Parameter(W, requires_grad=learnable)
+
+    def forward(self, dt_norm):
+        # dt_norm: [batch, q_len], values in [0,1]
+        idx = (dt_norm * (self.W.size(0)-1)).long().clamp(0, self.W.size(0)-1)
+        # returns [batch, q_len, d_model]
+        return self.W[idx]

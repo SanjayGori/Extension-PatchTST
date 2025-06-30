@@ -7,6 +7,7 @@ from torch import nn
 from torch import Tensor
 import torch.nn.functional as F
 import numpy as np
+from .PatchTST_layers import TimeGapEmbedding
 
 #from collections import OrderedDict
 from layers.PatchTST_layers import *
@@ -43,6 +44,15 @@ class PatchTST_backbone(nn.Module):
                                 attn_dropout=attn_dropout, dropout=dropout, act=act, key_padding_mask=key_padding_mask, padding_var=padding_var,
                                 attn_mask=attn_mask, res_attention=res_attention, pre_norm=pre_norm, store_attn=store_attn,
                                 pe=pe, learn_pe=learn_pe, verbose=verbose, **kwargs)
+        
+        self.context_window = context_window
+
+        # time-gap embedding for irregular intervals
+        self.tg_emb = TimeGapEmbedding(
+            q_len=context_window,  # full sequence length
+            d_model=d_model,       # same model dimension
+            learnable=False
+        )
 
         # Head
         self.head_nf = d_model * patch_num
@@ -54,10 +64,13 @@ class PatchTST_backbone(nn.Module):
         if self.pretrain_head: 
             self.head = self.create_pretrain_head(self.head_nf, c_in, fc_dropout) # custom head passed as a partial func with all its kwargs
         elif head_type == 'flatten': 
-            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
-        
+            #self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
+            self.head_dict = nn.ModuleDict()
+            self.d_model    = d_model
+            self.target_window   = target_window
+            self.head_dropout  = head_dropout
     
-    def forward(self, z):                                                                   # z: [bs x nvars x seq_len]
+    def forward(self, z, patch_len, x_mark=None):                                                                   # z: [bs x nvars x seq_len]
         # norm
         if self.revin: 
             z = z.permute(0,2,1)
@@ -67,12 +80,61 @@ class PatchTST_backbone(nn.Module):
         # do patching
         if self.padding_patch == 'end':
             z = self.padding_patch_layer(z)
-        z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)                   # z: [bs x nvars x patch_num x patch_len]
-        z = z.permute(0,1,3,2)                                                              # z: [bs x nvars x patch_len x patch_num]
+        #z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)                   # z: [bs x nvars x patch_num x patch_len]
+        z = z.unfold(dimension=-1, size=patch_len, step=self.stride)
+        z = z.permute(0,1,3,2)                                                          # z: [bs x nvars x patch_len x patch_num]
+
+        # inject time-gap if provided
+        if x_mark is not None:
+            # 1) pull out normalized dt per time-step
+            dt = x_mark[..., -1]  # [B, seq_len]
+            # pad dt exactly as you padded z
+            if self.padding_patch == 'end':
+                dt = torch.cat([dt, dt[:, -1:].repeat(1, self.stride)], dim=1)
+
+            patch_num = z.size(-1)
+            idxs = torch.arange(patch_num, device=dt.device) * self.stride
+            dt_patch = dt[:, idxs]  # [B, patch_num]
+
+            # 4) embed the gaps
+            dt_e = self.tg_emb(dt_patch)            # [B, patch_num, d_model]
+            dt_e = dt_e.permute(0,2,1).unsqueeze(1)  # [B, 1, d_model, patch_num]
+
+            # 5) project each patch into d_model (reuse or register a W_P)
+            key = str(patch_len)
+            if key not in self.backbone.W_P_dict:
+                self.backbone.W_P_dict[key] = nn.Linear(
+                    patch_len, self.backbone._d_model
+                ).to(dt.device)
+            W_P_lin = self.backbone.W_P_dict[key]
+
+            z_for_proj = z.permute(0,1,3,2)          # [B, nvars, patch_num, patch_len]
+            proj = W_P_lin(z_for_proj)               # [B, nvars, patch_num, d_model]
+            z_proj = proj.permute(0,1,3,2)           # [B, nvars, d_model, patch_num]
+
+            # 6) add the two
+            z = z_proj + dt_e
         
         # model
         z = self.backbone(z)                                                                # z: [bs x nvars x d_model x patch_num]
-        z = self.head(z)                                                                    # z: [bs x nvars x target_window] 
+        # z = self.head(z)   
+        
+        # dynamic flatten-head
+        if self.pretrain_head:
+            z = self.head(z)
+        elif self.head_type == 'flatten':
+            num_patches = z.shape[-1]
+            key = str(num_patches)
+            if key not in self.head_dict:
+                nf = self.d_model * num_patches
+                self.head_dict[key] = Flatten_Head(
+                    self.individual, self.n_vars, nf, self.target_window,
+                    head_dropout=self.head_dropout
+                ).to(z.device)
+            head = self.head_dict[key]
+            z = head(z)
+        else:
+            z = self.head(z)                                                                 # z: [bs x nvars x target_window] 
         
         # denorm
         if self.revin: 
@@ -140,11 +202,20 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
         
         # Input encoding
         q_len = patch_num
-        self.W_P = nn.Linear(patch_len, d_model)        # Eq 1: projection of feature vectors onto a d-dim vector space
+        #self.W_P = nn.Linear(patch_len, d_model)        # Eq 1: projection of feature vectors onto a d-dim vector space
+        
+        # for dynamic patch_len → d_model mappings
+        self.W_P_dict = nn.ModuleDict()
+        self._d_model = d_model
+
         self.seq_len = q_len
 
         # Positional encoding
-        self.W_pos = positional_encoding(pe, learn_pe, q_len, d_model)
+        #self.W_pos = positional_encoding(pe, learn_pe, q_len, d_model)
+        self.pe_type    = pe
+        self.learn_pe   = learn_pe
+        self._d_model   = d_model
+        self.W_pos_dict = nn.ParameterDict()
 
         # Residual dropout
         self.dropout = nn.Dropout(dropout)
@@ -157,12 +228,31 @@ class TSTiEncoder(nn.Module):  #i means channel-independent
     def forward(self, x) -> Tensor:                                              # x: [bs x nvars x patch_len x patch_num]
         
         n_vars = x.shape[1]
+        # get this batch's patch length
+        _, _, patch_len, num_patches = x.shape
+
+        key = str(num_patches)
+        if key not in self.W_pos_dict:
+            pe = positional_encoding(self.pe_type, self.learn_pe, num_patches, self._d_model)
+            pe = nn.Parameter(pe.to(x.device), requires_grad=self.learn_pe)
+            self.W_pos_dict[key] = pe
+        W_pos = self.W_pos_dict[key]       # [num_patches × d_model]
+
+
+        key = str(patch_len)
+        if key not in self.W_P_dict:
+            # create a new Linear(patch_len → d_model) and register it
+            self.W_P_dict[key] = nn.Linear(patch_len, self._d_model).to(x.device)
+
+        W_P = self.W_P_dict[key]
+
         # Input encoding
         x = x.permute(0,1,3,2)                                                   # x: [bs x nvars x patch_num x patch_len]
-        x = self.W_P(x)                                                          # x: [bs x nvars x patch_num x d_model]
+        #x = self.W_P(x)                                                          # x: [bs x nvars x patch_num x d_model]
+        x = W_P(x)
 
         u = torch.reshape(x, (x.shape[0]*x.shape[1],x.shape[2],x.shape[3]))      # u: [bs * nvars x patch_num x d_model]
-        u = self.dropout(u + self.W_pos)                                         # u: [bs * nvars x patch_num x d_model]
+        u = self.dropout(u + W_pos)                                         # u: [bs * nvars x patch_num x d_model]
 
         # Encoder
         z = self.encoder(u)                                                      # z: [bs * nvars x patch_num x d_model]

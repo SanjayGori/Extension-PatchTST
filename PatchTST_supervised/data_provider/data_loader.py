@@ -256,12 +256,17 @@ class Dataset_Custom(Dataset):
 
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        # compute Δt in days and normalize
+        df_stamp['dt'] = df_stamp['date'].diff().dt.total_seconds().div(86400).fillna(0)
+        max_dt = df_stamp['dt'].max() or 1.0
+        df_stamp['dt_norm'] = df_stamp['dt'] / max_dt
+
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
             df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['date'], axis=1).values
+            data_stamp = df_stamp.drop(['date', 'dt'], axis=1).values
         elif self.timeenc == 1:
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
@@ -269,6 +274,13 @@ class Dataset_Custom(Dataset):
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
+
+        # Add dynamic patch length column (must exist in CSV)
+        if "dynamic_patch_len" in df_raw.columns:
+            self.dynamic_patch = df_raw["dynamic_patch_len"].values[border1:border2]
+        else:
+            self.dynamic_patch = np.full((border2 - border1,), fill_value=self.seq_len // self.patch_len)  # fallback
+
 
     def __getitem__(self, index):
         s_begin = index
@@ -281,7 +293,7 @@ class Dataset_Custom(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, self.dynamic_patch[index]
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -373,6 +385,14 @@ class Dataset_Pred(Dataset):
             self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
 
+        # Add dynamic patch length, same as in Dataset_Custom
+        if "dynamic_patch_len" in df_raw.columns:
+            self.dynamic_patch = df_raw["dynamic_patch_len"].values[border1:border2]
+        else:
+            # fallback to constant
+            self.dynamic_patch = np.full((border2 - border1,), fill_value=self.seq_len // self.patch_len)
+
+
     def __getitem__(self, index):
         s_begin = index
         s_end = s_begin + self.seq_len
@@ -387,7 +407,7 @@ class Dataset_Pred(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, self.dynamic_patch[index]
 
     def __len__(self):
         return len(self.data_x) - self.seq_len + 1
