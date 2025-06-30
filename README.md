@@ -149,9 +149,79 @@ This project enhances the PatchTST model for financial time series forecasting u
 ---
 
 ## ❗ Final Decisions Needed
+# 🧠 PatchTST Extension for Multivariate and Irregular Time Series Forecasting
 
-- [ ] Final hardware (Colab Pro / local GPU / JS2?) **JS2**
-- [ ] Optuna or manual hyper-parameter search?
-- [ ] Exact tickers (top 10? full S&P 500 subset?)
+This project extends the [PatchTST](https://github.com/yuqinie98/PatchTST) model for more realistic financial time series data. We add new capabilities to make it robust for multivariate inputs, irregular time intervals, and adaptive patching needs.
 
+---
+
+## 🔧 Enhancements Implemented
+
+### 1. **Dynamic Patching**
+- **Original:** Patch length was fixed (e.g., 16) across all runs.
+- **Now:** Patch length is dynamically determined based on a window-to-patch ratio (`window_len // k`).
+- **Why:** Financial data may not align to fixed time slices due to holidays/gaps. Dynamic patching adapts automatically.
+- **How it helps:** Prevents slicing through gaps; ensures better learning with cleaner patch boundaries.
+
+---
+
+### 2. **Adaptive Flatten Head**
+- **Original:** Flatten head assumed a fixed patch count.
+- **Now:** Flatten head is rebuilt dynamically based on actual number of patches.
+- **Why:** Needed to work with variable patch sizes.
+- **How it helps:** Keeps model flexible and avoids size mismatch errors.
+
+---
+
+### 3. **Dynamic Positional Encoding**
+- **Original:** One fixed positional encoding tensor for fixed patch count.
+- **Now:** Positional encodings are cached and reused dynamically based on patch count.
+- **Why:** Essential for dynamic patches.
+- **How it helps:** Enables correct temporal understanding even with changing input shape.
+
+---
+
+### 4. **Time-Aware Embedding**
+- **New Addition:** Positional embeddings now include actual time gaps (delta time).
+- **Why:** In real data, time intervals may not be uniform.
+- **How it helps:** Model is aware of missing days/weekends and learns time dynamics better.
+
+---
+
+### 5. **CLI Support for Dynamic Patch Toggle**
+- **New:** A command-line flag `--use_dynamic_patch` to enable or disable dynamic patching.
+- **Why:** Easy to switch between baseline and enhanced model.
+- **How it helps:** Simplifies ablation studies and debugging.
+
+---
+
+## 📁 Directory Overview
+
+- `PatchTST_supervised/` — Core model and training logic
+- `data/` — Input data files (e.g., `weather.csv`, `AAPL.csv`)
+- `scripts/derived.py` — Code for generating technical indicators
+
+---
+
+## 🚀 Run Example
+
+Baseline (fixed patching):
+```bash
+import pandas as pd
+
+df = pd.read_csv("dataset/AAPL.csv")
+df.rename(columns={"Date": "date"}, inplace=True)
+df.to_csv(f'dataset/AAPL.csv', index=False)
+!python run_longExp.py \
+  --is_training 1 \
+  --do_predict \
+  --root_path ./dataset/ --data_path AAPL.csv \
+  --model_id PatchTST_aapl \
+  --model PatchTST \
+  --data custom --features S --target Close \
+  --seq_len 96 --label_len 48 --pred_len 24 \
+  --patch_len 13 --stride 8 \
+  --des dyn13_test \
+  --train_epochs 3 \
+  --batch_size 16
 ---
