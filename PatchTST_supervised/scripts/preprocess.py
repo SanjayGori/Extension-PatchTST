@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 
 # 1. Define folders (relative to script’s location)
-raw_dir    = "PatchTST_supervised/datasets"
-preprocessed_dir = "PatchTST_supervised/preprocessed_data"
+raw_dir    = "PatchTST_supervised/Raw data"
+preprocessed_dir = "PatchTST_supervised/dataset"
 os.makedirs(preprocessed_dir, exist_ok=True)
 
 # 2. Loop over every CSV in raw
