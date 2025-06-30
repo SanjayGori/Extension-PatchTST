@@ -48,6 +48,8 @@ for raw_path in glob.glob(os.path.join(raw_dir, "*.csv")):
     k = 3
     df["dynamic_patch_len"] = (df["AdaptivePatch"] // k).round().astype(int)
     df["dynamic_patch_len"] = df["dynamic_patch_len"].clip(lower=8)  # safety: min patch size = 8
+
+    df.rename(columns={"Date": "date"}, inplace=True)
    
     # prepare output path
     base = os.path.basename(raw_path).rsplit(".csv", 1)[0]
