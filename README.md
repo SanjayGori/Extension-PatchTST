@@ -1,119 +1,157 @@
-# PatchTST (ICLR 2023)
+# 📈 Adaptive Time-Aware PatchTST – Project Roadmap (Team 7)
 
-### This is an offical implementation of PatchTST: [A Time Series is Worth 64 Words: Long-term Forecasting with Transformers](https://arxiv.org/abs/2211.14730). 
+This project enhances the PatchTST model for financial time series forecasting using adaptive patching, time-aware embeddings, and multivariate indicators. Below is the step-by-step blueprint our team will follow.
 
-:triangular_flag_on_post: Our model has been included in [GluonTS](https://github.com/awslabs/gluonts). Special thanks to the contributor @[kashif](https://github.com/kashif)!
+---
 
-:triangular_flag_on_post: Our model has been included in [NeuralForecast](https://github.com/Nixtla/neuralforecast). Special thanks to the contributor @[kdgutier](https://github.com/kdgutier) and @[cchallu](https://github.com/cchallu)!
+## 📚 Table of Contents
 
-:triangular_flag_on_post: Our model has been included in [timeseriesAI(tsai)](https://github.com/timeseriesAI/tsai/blob/main/tutorial_nbs/15_PatchTST_a_new_transformer_for_LTSF.ipynb). Special thanks to the contributor @[oguiza](https://github.com/oguiza)!
+0. [0. Kick-off](#-0-kick-off-1-day)
+1. [1. Data Pipeline](#-1-data-pipeline-3-days)
+2. [2. Adaptive Windowing](#-2-adaptive-windowing-4-days)
+3. [3. Dynamic Patching](#%EF%B8%8F-3-dynamic-patching-5-days)
+4. [4. Time-Aware Positional Embedding](#-4-time-aware-positional-embedding-3-days)
+5. [5. Multivariate Feature Handler](#-5-multivariate-feature-handler-2-days)
+6. [6. Training & Experimentation](#-6-training--experimentation-7-days)
+7. [7. Reporting & Visualization](#-7-reporting--visualization-3-days)
+8. [8. Contingency & Plan B](#-8-contingency--plan-b-1-day)
+9. [9. Final Polish & Submission](#-9-final-polish--submission-2-days)
+10. [Final Decisions Needed](#final-decisions-needed)
 
-We offer a video that provides a concise overview of our paper for individuals seeking a rapid comprehension of its contents: https://www.youtube.com/watch?v=Z3-NrohddJw
+---
 
+## ✅ 0. Kick-off (1 day)
 
+| Task                                                                                                                                            | Goal                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| **0.1 Quick Sync** – 30-min call: confirm objective, extensions (Dynamic Patching, Time-Aware Embedding, Adaptive Windowing), deadlines, roles. | Align everyone and lock scope |
+| **0.2 Repo & Boards** – create / tidy GitHub repo, one ClickUp/Jira board with the same phase names as below.                                   | Organize project assets     |
+| **0.3 Baseline Check** – run the *exact* PatchTST weather benchmark command and store logs + metrics in `/baseline/`.                          | Baseline reproducibility    |
 
-## Key Designs
+✅ **Done when**: repo + board exist and baseline metrics are committed.
 
-:star2: **Patching**: segmentation of time series into subseries-level patches which are served as input tokens to Transformer.
+---
 
-:star2: **Channel-independence**: each channel contains a single univariate time series that shares the same embedding and Transformer weights across all the series.
+## 🛠 1. Data Pipeline (3 days)
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/model.png)
+| Task                                                                                                                             | Plain-English Goal          |
+| -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| **1.1 Raw Grab** – download Kaggle S&P 500 OHLCV file to `/data/raw/`.                                                           | Source historical data      |
+| **1.2 Cleaning Script** – fill blanks, convert `Date` to `datetime`, keep only required columns.                                 | Ensure clean, usable data   |
+| **1.3 Holiday & Gap Flags** – add `is_gap` (when `Date_i – Date_{i-1} > 1 day`).                | Tag weekends/holidays       |
+| **1.4 Derived Indicators** – compute RSI, SMA, EMA, MACD, ATR, daily log-return. Include formulas as comments.                   | Create technical signals    |
+| **1.5 10-Row Snapshot** – export a CSV with 10 representative rows.                                                              | Quick visual reference      |
 
-## Results
+✅ **Done when**: `data/processed/train.csv` exists and the 10-row sample is committed.
 
-### Supervised Learning
+---
 
-Compared with the best results that Transformer-based models can offer, PatchTST/64 achieves an overall **21.0%** reduction on MSE and **16.7%** reduction
-on MAE, while PatchTST/42 attains a overall **20.2%** reduction on MSE and **16.4%** reduction on MAE. It also outperforms other non-Transformer-based models like DLinear.
+## 🔄 2. Adaptive Windowing (4 days)
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/table3.png)
+| Task                                                                                                           | How to explain to anyone               |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **2.1 Market Regime Finder** – calculate 5-day rolling volatility of log-returns.                              | Track market turbulence                |
+| **2.2 Volatility Normalization** – Normalize to [0, 1] and store as `volatility_norm`.                         | Makes volatility scale consistent      |
+| **2.3 Window Logic** – Map volatility → window size (e.g., low vol = 50, high vol = 10). Store as `window_len`.| Dynamic patch control                  |
+| **2.4 Adaptive Patch** – Round each `window_len` to nearest multiple of 8.                                     | Stability for transformer batching     |
+| **2.5 Unit Test** – On toy data, confirm high volatility shrinks the window.                                   | Proves window logic works              |
+| **2.6 Notebook Demo** – Plot volatility vs. chosen window length; label axes.                                  | Visual explanation                     |
 
-### Self-supervised Learning
+✅ **Done when**: plot clearly shows adaptive shrinking/growing windows and tests pass.
 
-We do comparison with other supervised and self-supervised models, and self-supervised PatchTST is able to outperform all the baselines. 
+---
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/table4.png)
+## ⚙️ 3. Dynamic Patching (5 days)
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/table6.png)
+| Task                                                                                                                    | Layman description                                |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **3.1 Patch Generator Refactor** – replace fixed `patch_len` with `patch_len = window_len // k` (start with `k=3`).     | Patch size adapts to window                       |
+| **3.2 Gap-Aware Slicer** – skip patches that cross holidays or weekends.                                                | Prevents broken input                             |
+| **3.3 Patch Metadata** – record each patch’s `start_date`, `end_date`, and `real_len`.                                  | Easier debugging and visualization                |
+| **3.4 Distribution Check** – plot histogram of patch lengths; no zeros, reasonable range.                              | Sanity check on patch generator                   |
+| **3.5 Ablation Toggle** – add `--dynamic_patching false` flag to fallback to static logic.                             | For fair comparison and backup                    |
 
-We also test the capability of transfering the pre-trained model to downstream tasks.
+✅ **Done when**: histogram looks correct and CLI toggle works end-to-end.
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/table5.png)
+---
 
-## Efficiency on Long Look-back Windows
+## 🧭 4. Time-Aware Positional Embedding (3 days)
 
-Our PatchTST consistently <ins>reduces the MSE scores as the look-back window increases</ins>, which confirms our model’s capability to learn from longer receptive field.
+| Task                                                                                                                 | Explanation                          |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **4.1 Δt Vector** – compute normalized time gap (days) between each row.                                            | Captures irregularity in timestamps  |
+| **4.2 Embedding Layer** – Add sinusoidal or learned embedding for Δt.                                               | Time gaps as transformer tokens      |
+| **4.3 Integration Test** – Overfit on 100 rows; loss must decrease.                                                 | Proves the code is wired correctly   |
 
-![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/varying_L.png)
+✅ **Done when**: model trains without error and `model.summary()` shows time-aware embedding layer.
 
-## Getting Started
+---
 
-We seperate our codes for supervised learning and self-supervised learning into 2 folders: ```PatchTST_supervised``` and ```PatchTST_self_supervised```. Please choose the one that you want to work with.
+## 📊 5. Multivariate Feature Handler (2 days)
 
-### Supervised Learning
+| Task                                                                                                                             | Goal                                  |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **5.1 Feature Stack** – combine OHLCV + indicators into one tensor `[batch, seq, channels]`.                                     | Multivariate forecasting              |
+| **5.2 Cross-Channel Attention** – apply joint attention (concatenate channels before patching).                                  | Let model learn cross-feature dynamics|
 
-1. Install requirements. ```pip install -r requirements.txt```
+✅ **Done when**: forward pass works with 10+ input channels.
 
-2. Download data. You can download all the datasets from [Autoformer](https://drive.google.com/drive/folders/1ZOYpTUa82_jCcxIdTmyr0LXQfvaM9vIy). Create a seperate folder ```./dataset``` and put all the csv files in the directory.
+---
 
-3. Training. All the scripts are in the directory ```./scripts/PatchTST```. The default model is PatchTST/42. For example, if you want to get the multivariate forecasting results for weather dataset, just run the following command, and you can open ```./result.txt``` to see the results once the training is done:
-```
-sh ./scripts/PatchTST/weather.sh
-```
+## 🔁 6. Training & Experimentation (7 days)
 
-You can adjust the hyperparameters based on your needs (e.g. different patch length, different look-back windows and prediction lengths.). We also provide codes for the baseline models.
+| Step                                                                                                                  | What happens                          |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **6.1 Lightning Trainer** – convert training loop to PyTorch Lightning.                                               | Cleaner logs, callbacks, checkpoints  |
+| **6.2 First Full Run** – train Enhanced PatchTST on 10 tickers (AAPL, MSFT, etc.).                                    | Baseline performance on target data   |
+| **6.3 Hyper-Param Grid** – search `d_model`, `n_heads`, `patch_len divisor k`, learning rate.                         | Optimize model performance            |
+| **6.4 Ablations** – train 3 variants: (a) no Δt embedding, (b) no dynamic patch, (c) no adaptive window.              | Prove each module's importance        |
+| **6.5 Comparison Plots** – RMSE bar chart for each variant + original PatchTST.                                       | Visualize the impact of improvements  |
 
-### Self-supervised Learning
+✅ **Done when**: results + plots are in `/results/phase6/` and README explains model wins/losses.
 
-1. Follow the first 2 steps above
+---
 
-2. Pre-training: The scirpt patchtst_pretrain.py is to train the PatchTST/64. To run the code with a single GPU on ettm1, just run the following command
-```
-python patchtst_pretrain.py --dset ettm1 --mask_ratio 0.4
-```
-The model will be saved to the saved_model folder for the downstream tasks. There are several other parameters can be set in the patchtst_pretrain.py script.
- 
- 3. Fine-tuning: The script patchtst_finetune.py is for fine-tuning step. Either linear_probing or fine-tune the entire network can be applied.
-```
-python patchtst_finetune.py --dset ettm1 --pretrained_model <model_name>
-```
+## 📝 7. Reporting & Visualization (3 days)
 
-## Acknowledgement
+| Deliverable                                                                                                                      | Checklist                            |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **7.1 Architecture Diagram** – block diagram: input → windowing → dynamic patches → transformer → forecast.                     | System view for report                |
+| **7.2 Graph Annotations** – each plot must include title, axis labels with units, and caption.                                  | Scientific visualization              |
+| **7.3 Layman Write-up** – a 2-page jargon-free summary of key ideas.                                                            | For final presentation/report         |
+| **7.4 Appendix** – include indicator formulas, 10-row data sample, and hardware used.                                            | Completeness                          |
 
-We appreciate the following github repo very much for the valuable code base and datasets:
+✅ **Done when**: Word draft is ready and plots are publication-ready.
 
-https://github.com/cure-lab/LTSF-Linear
+---
 
-https://github.com/zhouhaoyi/Informer2020
+## 🧯 8. Contingency & Plan B (1 day)
 
-https://github.com/thuml/Autoformer
+| Task                                                                                                          | Purpose                      |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **8.1 Fallback Config** – original PatchTST + static patch_len only.                                          | Baseline safety net          |
+| **8.2 Rollback Script** – `run_baseline.sh` gets baseline metrics in <1 hr on Colab.                          | Reproducibility              |
+| **8.3 Decision Matrix** – If Enhanced RMSE ≤ baseline × 1.05 → keep; else fallback in final report.           | Clear judgment rule          |
 
-https://github.com/MAZiqing/FEDformer
+✅ **Done when**: fallback run finishes and matrix is added to the repo.
 
-https://github.com/alipay/Pyraformer
+---
 
-https://github.com/ts-kim/RevIN
+## 🧹 9. Final Polish & Submission (2 days)
 
-https://github.com/timeseriesAI/tsai
+1. Freeze code (`git tag v1.0-final`)
+2. Ensure `pytest` passes all unit tests
+3. Zip `src/`, `results/`, and report → submit to LMS/GitHub
+4. Deliver 15-slide deck + 5-min demo video
 
-## Contact
+✅ **Done when**: confirmation email is received for successful submission.
 
-If you have any questions or concerns, please contact us: ynie@princeton.edu or nnguyen@us.ibm.com or submit an issue
+---
 
-## Citation
+## ❗ Final Decisions Needed
 
-If you find this repo useful in your research, please consider citing our paper as follows:
+- [ ] Final hardware (Colab Pro / local GPU / JS2?) **JS2**
+- [ ] Optuna or manual hyper-parameter search?
+- [ ] Exact tickers (top 10? full S&P 500 subset?)
 
-```
-@inproceedings{Yuqietal-2023-PatchTST,
-  title     = {A Time Series is Worth 64 Words: Long-term Forecasting with Transformers},
-  author    = {Nie, Yuqi and
-               H. Nguyen, Nam and
-               Sinthong, Phanwadee and 
-               Kalagnanam, Jayant},
-  booktitle = {International Conference on Learning Representations},
-  year      = {2023}
-}
-```
-
+---
