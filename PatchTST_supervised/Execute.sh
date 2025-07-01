@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
 OUTPUT_CSV="results_summary.csv"
-echo "Ticker,MSE,MAE,RSE" > "$OUTPUT_CSV"
+echo "MSE,MAE,RSE" > "$OUTPUT_CSV"
 
 seq_len=336
-pred_len=96
+pred_len=191
 model_name=PatchTST
 data_name=custom
 random_seed=2021
 
-for file in ./dataset/*_preprocessed.csv; do
+for file in ./dataset/*.csv; do
   full_filename=$(basename "$file")
-  ticker="${full_filename%%_preprocessed.csv}"
+  ticker="${full_filename%%.csv}"
   model_id="${ticker}_${seq_len}_${pred_len}"
 
   echo "Running on $ticker"
@@ -26,7 +26,7 @@ for file in ./dataset/*_preprocessed.csv; do
     --model $model_name \
     --data $data_name \
     --features S \
-    --target Close \
+    --target OT \
     --seq_len $seq_len \
     --label_len 48 \
     --pred_len $pred_len \
@@ -54,7 +54,7 @@ for file in ./dataset/*_preprocessed.csv; do
   MAE=$(echo "$OUTPUT" | grep -i -oP "mae:\s*\K[0-9.]+" | tail -1)
   RSE=$(echo "$OUTPUT" | grep -i -oP "rse:\s*\K[0-9.]+" | tail -1)
 
-  echo "$ticker,$MSE,$MAE,$RSE" >> "$OUTPUT_CSV"
+  echo "$MSE,$MAE,$RSE,$OUTPUT" >> "$OUTPUT_CSV"
 done
 
 echo "All runs complete. Results saved to $OUTPUT_CSV"
