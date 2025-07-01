@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # Input and output paths
-raw_path = "PatchTST_supervised/weather/weather.csv"
+raw_path = "PatchTST_supervised/electricity/electricity.csv"
 preprocessed_dir = "PatchTST_supervised/dataset"
 os.makedirs(preprocessed_dir, exist_ok=True)
 

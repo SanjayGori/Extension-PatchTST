@@ -4,7 +4,7 @@ OUTPUT_CSV="results_summary.csv"
 echo "MSE,MAE,RSE" > "$OUTPUT_CSV"
 
 seq_len=336
-pred_len=191
+pred_len=720
 model_name=PatchTST
 data_name=custom
 random_seed=2021

@@ -73,3 +73,15 @@ mse:0.001657055108807981, mae:0.03059973567724228, rse:0.9491228461265564
 weather_preprocessed_336_191_PatchTST_custom_ftS_sl336_ll48_pl191_dm128_nh16_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
 mse:0.0014751733979210258, mae:0.028872720897197723, rse:0.8982861042022705
 
+electricity_preprocessed_336_96_PatchTST_custom_ftS_sl336_ll48_pl96_dm128_nh16_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+mse:0.511170506477356, mae:0.5353810787200928, rse:0.6970813274383545
+
+electricity_preprocessed_336_192_PatchTST_custom_ftS_sl336_ll48_pl192_dm128_nh16_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+mse:0.670940637588501, mae:0.6234715580940247, rse:0.7965445518493652
+
+electricity_preprocessed_336_335_PatchTST_custom_ftS_sl336_ll48_pl335_dm128_nh16_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+mse:0.8083536624908447, mae:0.6953002214431763, rse:0.8730921149253845
+
+electricity_preprocessed_336_720_PatchTST_custom_ftS_sl336_ll48_pl720_dm128_nh16_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+mse:0.9347778558731079, mae:0.7666170597076416, rse:0.9430918097496033
+
