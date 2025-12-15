@@ -1,6 +1,7 @@
 # Results Highlighting
 ![Screenshot_16-12-2025_35024_](https://github.com/user-attachments/assets/db9438e1-43f6-4d7b-b3e9-b88cad8e2691)
-Refer: Final Report - 
+
+## Refer: Final Report - https://github.com/SanjayGori/Extension-PatchTST/blob/main/Final_report_team_7_UoA.pdf
 
 # 📈 Adaptive Time-Aware PatchTST – Project Roadmap (Team 7)
 
