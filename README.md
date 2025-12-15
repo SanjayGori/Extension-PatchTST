@@ -1,3 +1,7 @@
+# Results Highlighting
+![Screenshot_16-12-2025_35024_](https://github.com/user-attachments/assets/db9438e1-43f6-4d7b-b3e9-b88cad8e2691)
+Refer: Final Report - 
+
 # 📈 Adaptive Time-Aware PatchTST – Project Roadmap (Team 7)
 
 This project enhances the PatchTST model for financial time series forecasting using adaptive patching, time-aware embeddings, and multivariate indicators. Below is the step-by-step blueprint our team will follow.
